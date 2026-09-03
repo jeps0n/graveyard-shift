@@ -176,6 +176,15 @@ export class Game {
       this.devReceipt.finalGrid(
         result.grid,
       );
+      const baseWin = 0;
+      const totalWin = 0;
+      this.devReceipt.finalResult(
+        baseWin,
+        multiplier,
+        totalWin,
+        // this.balance,
+        // this.balance,
+      );
       this.finishSpin(
         result,
       );
@@ -230,51 +239,36 @@ export class Game {
     let cascadeGrid = cloneGrid(result.grid);
     let cascadeWins = [...result.wins];
     const cumulativeWins: WinResult[] = [...result.wins];
-
     let cascadeIndex = 0;
-
     while (cascadeWins.length > 0) {
       cascadeIndex += 1;
-
       const step = resolveCascadeStep(cascadeGrid, cascadeWins);
-
       this.devReceipt.cascadeStart(cascadeIndex);
       this.devReceipt.winningPositionsRemoved(step.removedSymbols);
       this.devReceipt.gridAfterCollapse(step.collapsed);
       this.devReceipt.refill(step.refillDraws);
-
       cascadeGrid = cloneGrid(step.grid);
-
       this.view.displayResult(cascadeGrid);
       this.view.displayWinningPaylines(cumulativeWins);
       this.currentGrid = cloneGrid(cascadeGrid);
-
       this.devReceipt.cascadeGrid(cascadeGrid);
-
       await delay(CASCADE_DELAY);
-
       this.stateMachine.transition('EVALUATING');
       this.devReceipt.event('STATE TRANSITION', [
         'CASCADING → EVALUATING',
       ]);
-
       const evaluation = evaluateWins(cascadeGrid);
-
       this.devReceipt.evaluation(evaluation.evaluations);
       this.devReceipt.winResult(evaluation.wins);
-
       cascadeWins = evaluation.wins;
-
       if (cascadeWins.length > 0) {
         cumulativeWins.push(...cascadeWins);
-
         this.stateMachine.transition('CASCADING');
         this.devReceipt.event('STATE TRANSITION', [
           'EVALUATING → CASCADING',
         ]);
       }
     }
-
     const baseWin = cumulativeWins.reduce(
       (total, win) => total + win.amount,
       0,
@@ -293,15 +287,15 @@ export class Game {
     this.devReceipt.finalGrid(
       finalResult.grid,
     );
-    this.finishSpin(
-      finalResult,
-    );
     this.devReceipt.finalResult(
       baseWin,
       multiplier,
       totalWin,
-      this.balance - totalWin,
-      this.balance,
+      // this.balance,
+      // this.balance + totalWin,
+    );
+    this.finishSpin(
+      finalResult,
     );
     const scatterCount =
       this.countScatters(

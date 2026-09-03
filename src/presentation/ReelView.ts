@@ -214,7 +214,7 @@ export class ReelView extends Container {
         const coordinate =
           new Text({
             text:
-              `(${reel},${row})`,
+              `(${reel + 1},${row + 1})`,
             style: {
               fill: 0xaaaaaa,
               fontSize: 12,

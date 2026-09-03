@@ -472,7 +472,6 @@ export interface CascadeStepResult {
   collapsed: Array<Array<SymbolId | null>>;
   refillDraws: RngDrawTrace[];
 }
-
 export function resolveCascadeStep(
   grid: ReelGrid,
   wins: WinResult[],
@@ -492,11 +491,9 @@ export function resolveCascadeStep(
             other.position.row === entry.position.row,
         ) === index,
     );
-
   const removal = removeWinningSymbols(grid, wins);
   const collapsed = collapseReels(removal.grid);
   const refill = refillReels(collapsed, removal.removed);
-
   return {
     grid: refill.grid,
     removed: removal.removed,
@@ -505,7 +502,6 @@ export function resolveCascadeStep(
     refillDraws: refill.draws,
   };
 }
-
 export function resolveCascades(
   initialGrid: ReelGrid,
 ): CascadeResult {

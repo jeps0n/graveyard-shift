@@ -8,10 +8,10 @@ import type {
   PaylineEvaluationTrace,
   RngDrawTrace,
 } from '../math/GameMath';
-const RECEIPT_WIDTH = 400;
+const RECEIPT_WIDTH = 420;
 const RECEIPT_HEIGHT = 760;
 const GAME_WIDTH = 1000;
-const GAP = 20;
+const GAP = 0;
 const GRID_COLUMN_WIDTH = 8;
 export class DevReceipt {
   private readonly element: HTMLTextAreaElement;
@@ -165,21 +165,25 @@ export class DevReceipt {
       )
       .join(' → ');
     const details = [
-      `LINE             ${evaluation.payline}`,
-      `PATH             ${path}`,
-      `SYMBOLS          ${symbols}`,
-      `TARGET           ${evaluation.targetSymbol
+      `LINE       ${evaluation.payline}`,
+      `PATH       ${path}`,
+      `SYMBOLS    ${symbols}`,
+      `TARGET     ${evaluation.targetSymbol
         ? evaluation.targetSymbol.toUpperCase()
         : 'NONE'
       }`,
-      `MATCHED          ${evaluation.matchedCount}`,
-      `RESULT           ${evaluation.result}`,
-      `PAYOUT           $${evaluation.payout.toFixed(2)}`,
-      `REASON           ${evaluation.reason}`,
+      `MATCHED    ${evaluation.matchedCount}`,
+      `RESULT     ${evaluation.result}`,
     ];
+    if (evaluation.result === 'WIN') {
+      details.push(
+        `PAYOUT     $${evaluation.payout.toFixed(2)}`,
+        `REASON     ${evaluation.reason}`,
+      );
+    }
     if (evaluation.blockingSymbol) {
       details.push(
-        `BLOCKED BY       ${evaluation.blockingSymbol.toUpperCase()}`,
+        `BLOCKED BY ${evaluation.blockingSymbol.toUpperCase()}`,
       );
     }
     this.event(
@@ -190,16 +194,6 @@ export class DevReceipt {
   winResult(
     wins: WinResult[],
   ): void {
-    this.event(
-      'WIN RESULT',
-      [
-        `WIN LINES        ${wins.length}`,
-      ],
-    );
-    if (wins.length === 0) {
-      this.event('NO WIN');
-      return;
-    }
     for (
       let index = 0;
       index < wins.length;
@@ -221,7 +215,6 @@ export class DevReceipt {
   cascadeStart(index: number): void {
     this.event('CASCADE', [`CASCADE ${index}`]);
   }
-
   winningPositionsRemoved(
     removedSymbols: Array<{
       position: WinPosition;
@@ -235,17 +228,14 @@ export class DevReceipt {
       ),
     ]);
   }
-
   gridAfterCollapse(grid: Array<Array<SymbolId | null>>): void {
     this.event('GRID AFTER COLLAPSE', this.formatNullableGridLines(grid));
   }
-
   refill(draws: RngDrawTrace[]): void {
     this.event('REFILL', [
       `SYMBOLS REFILLED    ${draws.length}`,
     ]);
   }
-
   cascadeGrid(grid: ReelGrid): void {
     this.event('CASCADE GRID', this.formatGridLines(grid));
   }
@@ -261,8 +251,8 @@ export class DevReceipt {
     baseWin: number,
     multiplier: number,
     totalWin: number,
-    balanceBeforePayout: number,
-    balanceAfterPayout: number,
+    // balanceBeforePayout: number,
+    // balanceAfterPayout: number,
   ): void {
     this.event(
       'FINAL RESULT',
@@ -270,8 +260,8 @@ export class DevReceipt {
         `BASE WIN        $${baseWin.toFixed(2)}`,
         `MULTIPLIER      ×${multiplier}`,
         `TOTAL WIN       $${totalWin.toFixed(2)}`,
-        `BALANCE BEFORE  $${balanceBeforePayout.toFixed(2)}`,
-        `BALANCE AFTER   $${balanceAfterPayout.toFixed(2)}`,
+        // `BALANCE BEFORE  $${balanceBeforePayout.toFixed(2)}`,
+        // `BALANCE AFTER   $${balanceAfterPayout.toFixed(2)}`,
       ],
     );
   }
@@ -343,7 +333,7 @@ export class DevReceipt {
         );
       }
       rows.push(
-        `      ${symbols.join('| ')}`,
+        symbols.join('| '),
       );
     }
     return rows;
@@ -363,7 +353,7 @@ export class DevReceipt {
         );
       }
       rows.push(
-        `      ${symbols.join('| ')}`,
+        symbols.join('| '),
       );
     }
     return rows;
