@@ -2,6 +2,7 @@ import type {
   GameResult,
   ReelGrid,
   SymbolId,
+  WinPosition,
   WinResult,
 } from '../game/types';
 import { PAYLINES } from './Paylines';
@@ -43,6 +44,16 @@ function randomSymbol(reelIndex: number): SymbolId {
   const index = Math.floor(rng.next() * strip.length);
 
   return strip[index];
+}
+
+function getWinningPositions(
+  payline: number[],
+  count: number,
+): WinPosition[] {
+  return payline.slice(0, count).map((row, reel) => ({
+    reel,
+    row,
+  }));
 }
 
 function evaluatePayline(
@@ -93,6 +104,7 @@ function evaluatePayline(
     count: payoutCount,
     amount,
     payline: paylineIndex + 1,
+    positions: getWinningPositions(payline, payoutCount),
   };
 }
 
@@ -110,6 +122,51 @@ function evaluateWins(grid: ReelGrid): WinResult[] {
   return wins;
 }
 
+function removeWinningSymbols(
+  grid: ReelGrid,
+  wins: WinResult[],
+): ReelGrid {
+  const result = grid.map((reel) => [...reel]);
+
+  const winningPositions = new Set(
+    wins.flatMap((win) =>
+      win.positions.map(
+        ({ reel, row }) => `${reel}:${row}`,
+      ),
+    ),
+  );
+
+  for (const position of winningPositions) {
+    const [reel, row] = position.split(':').map(Number);
+
+    result[reel][row] = 'scatter';
+  }
+
+  return result;
+}
+
+function collapseReels(grid: ReelGrid): ReelGrid {
+  return grid.map((reel, reelIndex) => {
+    const remaining = reel.filter(
+      (_, row) => grid[reelIndex][row] !== 'scatter',
+    );
+
+    const replacements = Array.from(
+      { length: 3 - remaining.length },
+      () => randomSymbol(reelIndex),
+    );
+
+    return [...replacements, ...remaining];
+  });
+}
+
+function calculateTotalWin(wins: WinResult[]): number {
+  return wins.reduce(
+    (total, win) => total + win.amount,
+    0,
+  );
+}
+
 export function spinReels(): GameResult {
   const grid: ReelGrid = [];
 
@@ -125,14 +182,55 @@ export function spinReels(): GameResult {
 
   const wins = evaluateWins(grid);
 
-  const totalWin = wins.reduce(
-    (total, win) => total + win.amount,
-    0,
-  );
-
   return {
     grid,
     wins,
-    totalWin,
+    totalWin: calculateTotalWin(wins),
+  };
+}
+
+export interface CascadeStep {
+  grid: ReelGrid;
+  wins: WinResult[];
+  totalWin: number;
+}
+
+export interface CascadeResult {
+  steps: CascadeStep[];
+  finalGrid: ReelGrid;
+  totalWin: number;
+}
+
+export function resolveCascades(
+  initialGrid: ReelGrid,
+): CascadeResult {
+  let grid = initialGrid.map((reel) => [...reel]);
+  const steps: CascadeStep[] = [];
+
+  while (true) {
+    const wins = evaluateWins(grid);
+
+    if (wins.length === 0) {
+      break;
+    }
+
+    const totalWin = calculateTotalWin(wins);
+
+    steps.push({
+      grid: grid.map((reel) => [...reel]),
+      wins,
+      totalWin,
+    });
+
+    grid = collapseReels(removeWinningSymbols(grid, wins));
+  }
+
+  return {
+    steps,
+    finalGrid: grid,
+    totalWin: steps.reduce(
+      (total, step) => total + step.totalWin,
+      0,
+    ),
   };
 }

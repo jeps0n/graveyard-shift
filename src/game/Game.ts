@@ -1,5 +1,5 @@
 import type { Application } from 'pixi.js';
-import { spinReels } from '../math/GameMath';
+import { resolveCascades, spinReels } from '../math/GameMath';
 import { GameView } from '../presentation/GameView';
 import { GameStateMachine } from './GameStateMachine';
 import type { GameResult } from './types';
@@ -36,21 +36,51 @@ export class Game {
 
     this.balance -= this.bet;
 
-    const result = spinReels();
+    const initialResult = spinReels();
 
     this.stateMachine.transition('EVALUATING');
 
-    this.evaluateResult(result);
+    this.evaluateResult(initialResult);
   }
 
-  private evaluateResult(result: GameResult): void {
+private evaluateResult(result: GameResult): void {
+  if (result.wins.length === 0) {
+    this.finishSpin(result);
+    return;
+  }
+
+  this.stateMachine.transition('WIN_PRESENTATION');
+
+  this.view.displayResult(result.grid);
+  this.view.displayWinningPaylines(result.wins);
+
+  this.stateMachine.transition('CASCADING');
+
+  const cascadeResult = resolveCascades(result.grid);
+
+  for (const step of cascadeResult.steps) {
+    this.view.displayResult(step.grid);
+    this.view.displayWinningPaylines(step.wins);
+  }
+
+  this.stateMachine.transition('EVALUATING');
+
+  this.finishSpin({
+    grid: cascadeResult.finalGrid,
+    wins: cascadeResult.steps.flatMap((step) => step.wins),
+    totalWin: cascadeResult.totalWin,
+  });
+}
+
+  private finishSpin(result: GameResult): void {
     this.balance += result.totalWin;
 
-    this.stateMachine.transition('WIN_PRESENTATION');
-
     this.view.displayResult(result.grid);
-    this.view.displayWinningPaylines(result.wins);
-    this.updateHud(result.totalWin);
+    this.view.updateHud(
+      this.balance,
+      this.bet,
+      result.totalWin,
+    );
 
     this.stateMachine.transition('IDLE');
   }
