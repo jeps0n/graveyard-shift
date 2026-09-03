@@ -26,8 +26,11 @@ const REEL_WEIGHTS: Record<SymbolId, number[]> = {
 function buildReel(reelIndex: number): SymbolId[] {
   const strip: SymbolId[] = [];
 
-  for (const symbol of Object.keys(REEL_WEIGHTS) as SymbolId[]) {
-    const count = REEL_WEIGHTS[symbol][reelIndex];
+  for (const symbol of Object.keys(
+    REEL_WEIGHTS,
+  ) as SymbolId[]) {
+    const count =
+      REEL_WEIGHTS[symbol][reelIndex];
 
     for (let i = 0; i < count; i++) {
       strip.push(symbol);
@@ -37,38 +40,174 @@ function buildReel(reelIndex: number): SymbolId[] {
   return strip;
 }
 
-const REEL_STRIPS = [0, 1, 2, 3, 4].map(buildReel);
+const REEL_STRIPS = [0, 1, 2, 3, 4].map(
+  buildReel,
+);
 
-function randomSymbol(reelIndex: number): SymbolId {
-  const strip = REEL_STRIPS[reelIndex];
-  const index = Math.floor(rng.next() * strip.length);
+export interface RngDrawTrace {
+  reel: number;
+  row: number;
+  randomValue: number;
+  stripLength: number;
+  index: number;
+  symbol: SymbolId;
+}
 
-  return strip[index];
+export interface PaylineEvaluationTrace {
+  payline: number;
+  path: WinPosition[];
+  symbols: SymbolId[];
+  targetSymbol: SymbolId | null;
+  matchedCount: number;
+  result: 'WIN' | 'NO WIN';
+  payout: number;
+  blockingSymbol: SymbolId | null;
+  reason: string;
+}
+
+export interface GridGenerationTrace {
+  draws: RngDrawTrace[];
+  grid: ReelGrid;
+}
+
+export interface CascadeResolutionTrace {
+  index: number;
+  grid: ReelGrid;
+  wins: WinResult[];
+  evaluations: PaylineEvaluationTrace[];
+  removed: WinPosition[];
+  removedSymbols: Array<{
+    position: WinPosition;
+    symbol: SymbolId;
+  }>;
+  collapsed: Array<Array<SymbolId | null>>;
+  refillDraws: RngDrawTrace[];
+}
+
+export interface SpinMathTrace {
+  primary: GridGenerationTrace;
+  primaryEvaluations: PaylineEvaluationTrace[];
+  cascades: CascadeResolutionTrace[];
+}
+
+function cloneGrid(
+  grid: ReelGrid,
+): ReelGrid {
+  return grid.map((reel) => [...reel]);
+}
+
+function randomSymbol(
+  reelIndex: number,
+  row: number,
+  draws: RngDrawTrace[],
+): SymbolId {
+  const strip =
+    REEL_STRIPS[reelIndex];
+
+  const randomValue = rng.next();
+
+  const index = Math.floor(
+    randomValue * strip.length,
+  );
+
+  const symbol = strip[index];
+
+  draws.push({
+    reel: reelIndex,
+    row,
+    randomValue,
+    stripLength: strip.length,
+    index,
+    symbol,
+  });
+
+  return symbol;
+}
+
+export function generatePrimaryGrid(): GridGenerationTrace {
+  const grid: ReelGrid = [];
+  const draws: RngDrawTrace[] = [];
+
+  for (let reel = 0; reel < 5; reel++) {
+    const column: SymbolId[] = [];
+
+    for (let row = 0; row < 3; row++) {
+      column.push(
+        randomSymbol(
+          reel,
+          row,
+          draws,
+        ),
+      );
+    }
+
+    grid.push(column);
+  }
+
+  return {
+    draws,
+    grid,
+  };
 }
 
 function getWinningPositions(
   payline: number[],
   count: number,
 ): WinPosition[] {
-  return payline.slice(0, count).map((row, reel) => ({
-    reel,
-    row,
-  }));
+  return payline
+    .slice(0, count)
+    .map((row, reel) => ({
+      reel,
+      row,
+    }));
 }
 
 function evaluatePayline(
   grid: ReelGrid,
   payline: number[],
   paylineIndex: number,
-): WinResult | null {
-  let targetSymbol: SymbolId | null = null;
+): {
+  win: WinResult | null;
+  trace: PaylineEvaluationTrace;
+} {
+  const path =
+    getWinningPositions(
+      payline,
+      5,
+    );
+
+  const symbols = path.map(
+    ({ reel, row }) =>
+      grid[reel][row],
+  );
+
+  let targetSymbol:
+    | SymbolId
+    | null = null;
 
   for (let reel = 0; reel < 5; reel++) {
-    const symbol = grid[reel][payline[reel]];
+    const symbol =
+      grid[reel][payline[reel]];
 
     if (symbol !== 'marge') {
       if (symbol === 'scatter') {
-        return null;
+        return {
+          win: null,
+          trace: {
+            payline:
+              paylineIndex + 1,
+            path,
+            symbols,
+            targetSymbol: null,
+            matchedCount: 0,
+            result: 'NO WIN',
+            payout: 0,
+            blockingSymbol:
+              'scatter',
+            reason:
+              'Scatter cannot start a payline win.',
+          },
+        };
       }
 
       targetSymbol = symbol;
@@ -83,9 +222,13 @@ function evaluatePayline(
   let count = 0;
 
   for (let reel = 0; reel < 5; reel++) {
-    const symbol = grid[reel][payline[reel]];
+    const symbol =
+      grid[reel][payline[reel]];
 
-    if (symbol === targetSymbol || symbol === 'marge') {
+    if (
+      symbol === targetSymbol ||
+      symbol === 'marge'
+    ) {
       count++;
     } else {
       break;
@@ -93,99 +236,284 @@ function evaluatePayline(
   }
 
   if (count < 3) {
-    return null;
+    const blockingSymbol =
+      grid[count][payline[count]];
+
+    return {
+      win: null,
+      trace: {
+        payline:
+          paylineIndex + 1,
+        path,
+        symbols,
+        targetSymbol,
+        matchedCount: count,
+        result: 'NO WIN',
+        payout: 0,
+        blockingSymbol,
+        reason:
+          `Only ${count} matching position(s) before the sequence was blocked.`,
+      },
+    };
   }
 
-  const payoutCount = Math.min(count, 5) as 3 | 4 | 5;
-  const amount = PAYTABLE[targetSymbol].payouts[payoutCount];
+  const payoutCount =
+    Math.min(count, 5) as
+      | 3
+      | 4
+      | 5;
 
-  return {
+  const amount =
+    PAYTABLE[targetSymbol].payouts[
+      payoutCount
+    ];
+
+  const win: WinResult = {
     symbol: targetSymbol,
     count: payoutCount,
     amount,
-    payline: paylineIndex + 1,
-    positions: getWinningPositions(payline, payoutCount),
+    payline:
+      paylineIndex + 1,
+    positions:
+      getWinningPositions(
+        payline,
+        payoutCount,
+      ),
+  };
+
+  return {
+    win,
+    trace: {
+      payline:
+        paylineIndex + 1,
+      path,
+      symbols,
+      targetSymbol,
+      matchedCount: payoutCount,
+      result: 'WIN',
+      payout: amount,
+      blockingSymbol: null,
+      reason:
+        `Matched ${payoutCount} consecutive position(s).`,
+    },
   };
 }
 
-function evaluateWins(grid: ReelGrid): WinResult[] {
+export function evaluateWins(
+  grid: ReelGrid,
+): {
+  wins: WinResult[];
+  evaluations: PaylineEvaluationTrace[];
+} {
   const wins: WinResult[] = [];
+  const evaluations: PaylineEvaluationTrace[] = [];
 
-  PAYLINES.forEach((payline, index) => {
-    const win = evaluatePayline(grid, payline, index);
+  PAYLINES.forEach(
+    (payline, index) => {
+      const evaluation =
+        evaluatePayline(
+          grid,
+          payline,
+          index,
+        );
 
-    if (win) {
-      wins.push(win);
-    }
-  });
+      evaluations.push(
+        evaluation.trace,
+      );
 
-  return wins;
+      if (evaluation.win) {
+        wins.push(
+          evaluation.win,
+        );
+      }
+    },
+  );
+
+  return {
+    wins,
+    evaluations,
+  };
 }
+
+/*
+ * IMPORTANT:
+ * null means an empty position during
+ * cascade processing.
+ *
+ * 'scatter' is always a real game symbol
+ * and must never be used as an internal
+ * empty-slot marker.
+ */
 
 function removeWinningSymbols(
   grid: ReelGrid,
   wins: WinResult[],
-): ReelGrid {
-  const result = grid.map((reel) => [...reel]);
+): {
+  grid: Array<
+    Array<SymbolId | null>
+  >;
+  removed: WinPosition[];
+} {
+  const result:
+    Array<
+      Array<SymbolId | null>
+    > = cloneGrid(grid);
 
-  const winningPositions = new Set(
-    wins.flatMap((win) =>
-      win.positions.map(
-        ({ reel, row }) => `${reel}:${row}`,
+  const winningPositions =
+    new Set(
+      wins.flatMap((win) =>
+        win.positions.map(
+          ({ reel, row }) =>
+            `${reel}:${row}`,
+        ),
       ),
-    ),
-  );
+    );
 
-  for (const position of winningPositions) {
-    const [reel, row] = position.split(':').map(Number);
+  const removed: WinPosition[] = [];
 
-    result[reel][row] = 'scatter';
+  for (
+    const positionKey of winningPositions
+  ) {
+    const [reel, row] =
+      positionKey
+        .split(':')
+        .map(Number);
+
+    result[reel][row] = null;
+
+    removed.push({
+      reel,
+      row,
+    });
   }
 
-  return result;
+  return {
+    grid: result,
+    removed,
+  };
 }
 
-function collapseReels(grid: ReelGrid): ReelGrid {
-  return grid.map((reel, reelIndex) => {
-    const remaining = reel.filter(
-      (_, row) => grid[reelIndex][row] !== 'scatter',
-    );
+function collapseReels(
+  grid: Array<
+    Array<SymbolId | null>
+  >,
+): Array<
+  Array<SymbolId | null>
+> {
+  return grid.map((reel) => {
+    const remaining =
+      reel.filter(
+        (
+          symbol,
+        ): symbol is SymbolId =>
+          symbol !== null,
+      );
 
-    const replacements = Array.from(
-      { length: 3 - remaining.length },
-      () => randomSymbol(reelIndex),
-    );
-
-    return [...replacements, ...remaining];
+    return [
+      ...Array.from(
+        {
+          length:
+            3 - remaining.length,
+        },
+        () => null,
+      ),
+      ...remaining,
+    ];
   });
 }
 
-function calculateTotalWin(wins: WinResult[]): number {
+function refillReels(
+  grid: Array<
+    Array<SymbolId | null>
+  >,
+  removed: WinPosition[],
+): {
+  grid: ReelGrid;
+  draws: RngDrawTrace[];
+} {
+  /*
+   * This is the strict type boundary:
+   *
+   * nullable cascade state goes in,
+   * fully populated ReelGrid comes out.
+   */
+  const result: ReelGrid = [];
+  const draws: RngDrawTrace[] = [];
+
+  for (let reel = 0; reel < 5; reel++) {
+    const replacementCount =
+      removed.filter(
+        (position) =>
+          position.reel === reel,
+      ).length;
+
+    const replacements: SymbolId[] = [];
+
+    for (
+      let row = 0;
+      row < replacementCount;
+      row++
+    ) {
+      replacements.push(
+        randomSymbol(
+          reel,
+          row,
+          draws,
+        ),
+      );
+    }
+
+    const remaining =
+      grid[reel].filter(
+        (
+          symbol,
+        ): symbol is SymbolId =>
+          symbol !== null,
+      );
+
+    result.push([
+      ...replacements,
+      ...remaining,
+    ]);
+  }
+
+  return {
+    grid: result,
+    draws,
+  };
+}
+
+function calculateTotalWin(
+  wins: WinResult[],
+): number {
   return wins.reduce(
-    (total, win) => total + win.amount,
+    (total, win) =>
+      total + win.amount,
     0,
   );
 }
 
-export function spinReels(): GameResult {
-  const grid: ReelGrid = [];
-
-  for (let reel = 0; reel < 5; reel++) {
-    const column: SymbolId[] = [];
-
-    for (let row = 0; row < 3; row++) {
-      column.push(randomSymbol(reel));
-    }
-
-    grid.push(column);
-  }
-
-  const wins = evaluateWins(grid);
+export function evaluatePrimaryGrid(
+  primary: GridGenerationTrace,
+): GameResult & {
+  trace: SpinMathTrace;
+} {
+  const evaluation =
+    evaluateWins(primary.grid);
 
   return {
-    grid,
-    wins,
-    totalWin: calculateTotalWin(wins),
+    grid: primary.grid,
+    wins: evaluation.wins,
+    totalWin:
+      calculateTotalWin(
+        evaluation.wins,
+      ),
+    trace: {
+      primary,
+      primaryEvaluations:
+        evaluation.evaluations,
+      cascades: [],
+    },
   };
 }
 
@@ -199,38 +527,111 @@ export interface CascadeResult {
   steps: CascadeStep[];
   finalGrid: ReelGrid;
   totalWin: number;
+  trace: CascadeResolutionTrace[];
 }
 
 export function resolveCascades(
   initialGrid: ReelGrid,
 ): CascadeResult {
-  let grid = initialGrid.map((reel) => [...reel]);
+  let grid =
+    cloneGrid(initialGrid);
+
   const steps: CascadeStep[] = [];
+  const trace: CascadeResolutionTrace[] = [];
 
   while (true) {
-    const wins = evaluateWins(grid);
+    const evaluation =
+      evaluateWins(grid);
 
-    if (wins.length === 0) {
+    if (
+      evaluation.wins.length === 0
+    ) {
       break;
     }
 
-    const totalWin = calculateTotalWin(wins);
+    const totalWin =
+      calculateTotalWin(
+        evaluation.wins,
+      );
 
     steps.push({
-      grid: grid.map((reel) => [...reel]),
-      wins,
+      grid: cloneGrid(grid),
+      wins: evaluation.wins,
       totalWin,
     });
 
-    grid = collapseReels(removeWinningSymbols(grid, wins));
+    const removedSymbols =
+      evaluation.wins
+        .flatMap((win) =>
+          win.positions.map(
+            (position) => ({
+              position,
+              symbol:
+                grid[
+                  position.reel
+                ][position.row],
+            }),
+          ),
+        )
+        .filter(
+          (entry, index, all) =>
+            all.findIndex(
+              (candidate) =>
+                candidate.position.reel ===
+                  entry.position.reel &&
+                candidate.position.row ===
+                  entry.position.row,
+            ) === index,
+        );
+
+    const removal =
+      removeWinningSymbols(
+        grid,
+        evaluation.wins,
+      );
+
+    const collapsed =
+      collapseReels(
+        removal.grid,
+      );
+
+    const refill =
+      refillReels(
+        collapsed,
+        removal.removed,
+      );
+
+    grid = refill.grid;
+
+    const nextEvaluation =
+      evaluateWins(grid);
+
+    trace.push({
+      index:
+        trace.length + 1,
+      grid: cloneGrid(grid),
+      wins:
+        nextEvaluation.wins,
+      evaluations:
+        nextEvaluation.evaluations,
+      removed:
+        removal.removed,
+      removedSymbols,
+      collapsed,
+      refillDraws:
+        refill.draws,
+    });
   }
 
   return {
     steps,
     finalGrid: grid,
-    totalWin: steps.reduce(
-      (total, step) => total + step.totalWin,
-      0,
-    ),
+    totalWin:
+      steps.reduce(
+        (total, step) =>
+          total + step.totalWin,
+        0,
+      ),
+    trace,
   };
 }
