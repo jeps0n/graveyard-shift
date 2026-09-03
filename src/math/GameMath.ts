@@ -6,7 +6,7 @@ import type {
 } from '../game/types';
 import { PAYLINES } from './Paylines';
 import { PAYTABLE } from './Paytable';
-import { rng } from './RNG';
+import { rng } from './RNG.ts';
 
 const REEL_WEIGHTS: Record<SymbolId, number[]> = {
   coffee: [12, 12, 13, 13, 13],
