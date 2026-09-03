@@ -5,40 +5,31 @@ import type {
   WinResult,
 } from '../game/types';
 import type {
-  CascadeResolutionTrace,
   PaylineEvaluationTrace,
   RngDrawTrace,
 } from '../math/GameMath';
-
 const RECEIPT_WIDTH = 400;
 const RECEIPT_HEIGHT = 760;
 const GAME_WIDTH = 1000;
 const GAP = 20;
 const GRID_COLUMN_WIDTH = 8;
-
 export class DevReceipt {
   private readonly element: HTMLTextAreaElement;
   private readonly lines: string[] = [];
   private sequence = 0;
-
   constructor() {
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
     document.body.style.margin = '0';
-
     const canvas = document.querySelector('canvas');
-
     if (canvas) {
       canvas.style.position = 'fixed';
       canvas.style.left = '50%';
       canvas.style.top = '50%';
       canvas.style.transform = 'translate(-50%, -50%)';
     }
-
     this.element = document.createElement('textarea');
-
     this.element.readOnly = true;
-
     Object.assign(this.element.style, {
       position: 'fixed',
       left: `calc(50% + ${GAME_WIDTH / 2 + GAP}px)`,
@@ -65,27 +56,21 @@ export class DevReceipt {
       userSelect: 'text',
       WebkitUserSelect: 'text',
     });
-
     this.element.setAttribute(
       'aria-label',
       'Dev receipt',
     );
-
     document.body.appendChild(this.element);
-
     this.render();
   }
-
   clear(): void {
     this.lines.length = 0;
     this.sequence = 0;
     this.render();
   }
-
   blur(): void {
     this.element.blur();
   }
-
   event(
     title: string,
     details: string[] = [],
@@ -93,7 +78,6 @@ export class DevReceipt {
     const number = String(
       ++this.sequence,
     ).padStart(3, '0');
-
     this.lines.push(
       `[${number}] ${title}`,
       ...details.map(
@@ -101,10 +85,8 @@ export class DevReceipt {
       ),
       '',
     );
-
     this.render();
   }
-
   spinStart(
     spinNumber: number,
     bet: number,
@@ -121,7 +103,6 @@ export class DevReceipt {
       ],
     );
   }
-
   primaryGrid(
     grid: ReelGrid,
   ): void {
@@ -130,7 +111,6 @@ export class DevReceipt {
       this.formatGridLines(grid),
     );
   }
-
   rngDraws(
     draws: RngDrawTrace[],
   ): void {
@@ -148,7 +128,6 @@ export class DevReceipt {
       );
     }
   }
-
   evaluation(
     evaluations: PaylineEvaluationTrace[],
   ): void {
@@ -158,23 +137,19 @@ export class DevReceipt {
         `PAYLINES         ${evaluations.length}`,
       ],
     );
-
     for (const evaluation of evaluations) {
       this.paylineEvaluation(evaluation);
     }
-
     this.event(
       'EVALUATION COMPLETE',
       [
-        `WIN LINES        ${
-          evaluations.filter(
-            ({ result }) => result === 'WIN',
-          ).length
+        `WIN LINES        ${evaluations.filter(
+          ({ result }) => result === 'WIN',
+        ).length
         }`,
       ],
     );
   }
-
   private paylineEvaluation(
     evaluation: PaylineEvaluationTrace,
   ): void {
@@ -183,41 +158,35 @@ export class DevReceipt {
         (symbol) => symbol.toUpperCase(),
       )
       .join(' | ');
-
     const path = evaluation.path
       .map(
         ({ reel, row }) =>
           `(${reel + 1},${row + 1})`,
       )
       .join(' → ');
-
     const details = [
       `LINE             ${evaluation.payline}`,
       `PATH             ${path}`,
       `SYMBOLS          ${symbols}`,
-      `TARGET           ${
-        evaluation.targetSymbol
-          ? evaluation.targetSymbol.toUpperCase()
-          : 'NONE'
+      `TARGET           ${evaluation.targetSymbol
+        ? evaluation.targetSymbol.toUpperCase()
+        : 'NONE'
       }`,
       `MATCHED          ${evaluation.matchedCount}`,
       `RESULT           ${evaluation.result}`,
       `PAYOUT           $${evaluation.payout.toFixed(2)}`,
       `REASON           ${evaluation.reason}`,
     ];
-
     if (evaluation.blockingSymbol) {
       details.push(
         `BLOCKED BY       ${evaluation.blockingSymbol.toUpperCase()}`,
       );
     }
-
     this.event(
       `PAYLINE ${evaluation.payline}`,
       details,
     );
   }
-
   winResult(
     wins: WinResult[],
   ): void {
@@ -227,19 +196,16 @@ export class DevReceipt {
         `WIN LINES        ${wins.length}`,
       ],
     );
-
     if (wins.length === 0) {
       this.event('NO WIN');
       return;
     }
-
     for (
       let index = 0;
       index < wins.length;
       index++
     ) {
       const win = wins[index];
-
       this.event(
         `WIN ${index + 1}`,
         [
@@ -252,53 +218,37 @@ export class DevReceipt {
       );
     }
   }
-
-  cascade(
-    trace: CascadeResolutionTrace,
-  ): void {
-    this.event(
-      `CASCADE ${trace.index}`,
-    );
-
-    this.event(
-      'WINNING POSITIONS REMOVED',
-      trace.removedSymbols.length > 0
-        ? trace.removedSymbols.map(
-            ({ position, symbol }) =>
-              `${this.formatPosition(position)}  ${symbol.toUpperCase()}`,
-          )
-        : ['NONE'],
-    );
-
-    this.event(
-      'GRID AFTER COLLAPSE',
-      this.formatNullableGridLines(
-        trace.collapsed,
-      ),
-    );
-
-    this.event(
-      'REFILL',
-      trace.refillDraws.map(
-        (draw) =>
-          `REEL ${draw.reel + 1}  ROW ${draw.row + 1}  RNG ${draw.randomValue.toFixed(9)}  INDEX ${draw.index}  SYMBOL ${draw.symbol.toUpperCase()}`,
-      ),
-    );
-
-    this.event(
-      'CASCADE GRID',
-      this.formatGridLines(trace.grid),
-    );
-
-    this.evaluation(
-      trace.evaluations,
-    );
-
-    this.winResult(
-      trace.wins,
-    );
+  cascadeStart(index: number): void {
+    this.event('CASCADE', [`CASCADE ${index}`]);
   }
 
+  winningPositionsRemoved(
+    removedSymbols: Array<{
+      position: WinPosition;
+      symbol: SymbolId;
+    }>,
+  ): void {
+    this.event('WINNING POSITIONS REMOVED', [
+      ...removedSymbols.map(
+        ({ position, symbol }) =>
+          `${this.formatPosition(position)}    ${symbol}`,
+      ),
+    ]);
+  }
+
+  gridAfterCollapse(grid: Array<Array<SymbolId | null>>): void {
+    this.event('GRID AFTER COLLAPSE', this.formatNullableGridLines(grid));
+  }
+
+  refill(draws: RngDrawTrace[]): void {
+    this.event('REFILL', [
+      `SYMBOLS REFILLED    ${draws.length}`,
+    ]);
+  }
+
+  cascadeGrid(grid: ReelGrid): void {
+    this.event('CASCADE GRID', this.formatGridLines(grid));
+  }
   finalGrid(
     grid: ReelGrid,
   ): void {
@@ -307,7 +257,6 @@ export class DevReceipt {
       this.formatGridLines(grid),
     );
   }
-
   finalResult(
     baseWin: number,
     multiplier: number,
@@ -326,7 +275,6 @@ export class DevReceipt {
       ],
     );
   }
-
   afterMidnight(
     scatterCount: number,
   ): void {
@@ -338,7 +286,6 @@ export class DevReceipt {
       ],
     );
   }
-
   pick(
     choice: string,
     multiplier: number,
@@ -351,7 +298,6 @@ export class DevReceipt {
       ],
     );
   }
-
   nextSpin(
     multiplier: number,
   ): void {
@@ -362,21 +308,17 @@ export class DevReceipt {
       ],
     );
   }
-
   private render(): void {
     this.element.value =
       this.lines.join('\n');
-
     this.element.scrollTop =
       this.element.scrollHeight;
   }
-
   private formatPosition(
     position: WinPosition,
   ): string {
     return `(${position.reel + 1},${position.row + 1})`;
   }
-
   private formatPositions(
     positions: WinPosition[],
   ): string {
@@ -387,15 +329,12 @@ export class DevReceipt {
       )
       .join(' → ');
   }
-
   private formatGridLines(
     grid: ReelGrid,
   ): string[] {
     const rows: string[] = [];
-
     for (let row = 0; row < 3; row++) {
       const symbols: string[] = [];
-
       for (let reel = 0; reel < 5; reel++) {
         symbols.push(
           grid[reel][row]
@@ -403,38 +342,30 @@ export class DevReceipt {
             .padEnd(GRID_COLUMN_WIDTH),
         );
       }
-
       rows.push(
         `      ${symbols.join('| ')}`,
       );
     }
-
     return rows;
   }
-
   private formatNullableGridLines(
     grid: Array<Array<SymbolId | null>>,
   ): string[] {
     const rows: string[] = [];
-
     for (let row = 0; row < 3; row++) {
       const symbols: string[] = [];
-
       for (let reel = 0; reel < 5; reel++) {
         const symbol = grid[reel][row];
-
         symbols.push(
           (symbol ?? 'EMPTY')
             .toUpperCase()
             .padEnd(GRID_COLUMN_WIDTH),
         );
       }
-
       rows.push(
         `      ${symbols.join('| ')}`,
       );
     }
-
     return rows;
   }
 }
