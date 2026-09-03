@@ -21,31 +21,42 @@ const SYMBOL_LABELS: Record<SymbolId, string> = {
 };
 
 const PAYLINE_COLORS = [
-  0xff0000, // RED — Payline 1
-  0xff8000, // ORANGE — Payline 2
-  0xffff00, // YELLOW — Payline 3
-  0x00ff00, // GREEN — Payline 4
-  0x00ffff, // CYAN — Payline 5
-  0x0000ff, // BLUE — Payline 6
-  0x8000ff, // PURPLE — Payline 7
-  0xff00ff, // MAGENTA — Payline 8
-  0x8b4513, // BROWN — Payline 9
-  0xffffff, // WHITE — Payline 10
+  0xff0000,
+  0xff8000,
+  0xffff00,
+  0x00ff00,
+  0x00ffff,
+  0x0000ff,
+  0x8000ff,
+  0xff00ff,
+  0x8b4513,
+  0xffffff,
 ];
 
 export class ReelView extends Container {
+  private readonly gridLayer: Container;
+  private readonly paylineLayer: Container;
+
   constructor() {
     super();
+
+    this.gridLayer = new Container();
+    this.paylineLayer = new Container();
+
+    this.addChild(this.gridLayer);
+    this.addChild(this.paylineLayer);
 
     this.createPlaceholderGrid();
   }
 
   displayResult(grid: ReelGrid): void {
-    this.removeChildren();
+    this.gridLayer.removeChildren();
     this.createGrid(grid);
   }
 
   displayWinningPaylines(wins: WinResult[]): void {
+    this.paylineLayer.removeChildren();
+
     for (const win of wins) {
       const paylineIndex = win.payline - 1;
       const payline = PAYLINES[paylineIndex];
@@ -76,7 +87,7 @@ export class ReelView extends Container {
         alpha: 0.8,
       });
 
-      this.addChild(line);
+      this.paylineLayer.addChild(line);
     }
   }
 
@@ -111,7 +122,7 @@ export class ReelView extends Container {
             color: 0x555d68,
           });
 
-        this.addChild(cell);
+        this.gridLayer.addChild(cell);
 
         const label = new Text({
           text: SYMBOL_LABELS[symbol],
@@ -129,7 +140,7 @@ export class ReelView extends Container {
         label.y =
           row * (REEL_HEIGHT + GAP) + REEL_HEIGHT / 2;
 
-        this.addChild(label);
+        this.gridLayer.addChild(label);
 
         const coordinate = new Text({
           text: `(${reel},${row})`,
@@ -144,7 +155,7 @@ export class ReelView extends Container {
         coordinate.y =
           row * (REEL_HEIGHT + GAP) + 8;
 
-        this.addChild(coordinate);
+        this.gridLayer.addChild(coordinate);
       }
     }
   }

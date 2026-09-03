@@ -3,8 +3,8 @@ import type { GameState } from './types';
 const VALID_TRANSITIONS: Record<GameState, GameState[]> = {
   IDLE: ['SPINNING'],
   SPINNING: ['EVALUATING'],
-  EVALUATING: ['WIN_PRESENTATION', 'CASCADING'],
-  WIN_PRESENTATION: ['IDLE', 'CASCADING'],
+  EVALUATING: ['WIN_PRESENTATION', 'IDLE'],
+  WIN_PRESENTATION: ['CASCADING'],
   CASCADING: ['EVALUATING', 'IDLE'],
 };
 

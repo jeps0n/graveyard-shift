@@ -4,6 +4,14 @@ import { GameView } from '../presentation/GameView';
 import { GameStateMachine } from './GameStateMachine';
 import type { GameResult } from './types';
 
+const CASCADE_DELAY = 800;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 export class Game {
   readonly view: GameView;
 
@@ -17,13 +25,13 @@ export class Game {
     app.stage.addChild(this.view);
 
     this.view.spinButton.on('pointertap', () => {
-      this.handleSpin();
+      void this.handleSpin();
     });
 
     this.updateHud();
   }
 
-  private handleSpin(): void {
+  private async handleSpin(): Promise<void> {
     if (this.stateMachine.current !== 'IDLE') {
       return;
     }
@@ -33,6 +41,7 @@ export class Game {
     }
 
     this.stateMachine.transition('SPINNING');
+    this.view.setSpinEnabled(false);
 
     this.balance -= this.bet;
 
@@ -40,42 +49,47 @@ export class Game {
 
     this.stateMachine.transition('EVALUATING');
 
-    this.evaluateResult(initialResult);
+    await this.evaluateResult(initialResult);
   }
 
-private evaluateResult(result: GameResult): void {
-  if (result.wins.length === 0) {
-    this.finishSpin(result);
-    return;
+  private async evaluateResult(result: GameResult): Promise<void> {
+    if (result.wins.length === 0) {
+      this.finishSpin(result);
+      return;
+    }
+
+    this.stateMachine.transition('WIN_PRESENTATION');
+
+    this.view.displayResult(result.grid);
+    this.view.displayWinningPaylines(result.wins);
+
+    await delay(CASCADE_DELAY);
+
+    this.stateMachine.transition('CASCADING');
+
+    const cascadeResult = resolveCascades(result.grid);
+
+    for (const step of cascadeResult.steps) {
+      this.view.displayResult(step.grid);
+      this.view.displayWinningPaylines(step.wins);
+
+      await delay(CASCADE_DELAY);
+    }
+
+    this.stateMachine.transition('EVALUATING');
+
+    this.finishSpin({
+      grid: cascadeResult.finalGrid,
+      wins: cascadeResult.steps.flatMap((step) => step.wins),
+      totalWin: cascadeResult.totalWin,
+    });
   }
-
-  this.stateMachine.transition('WIN_PRESENTATION');
-
-  this.view.displayResult(result.grid);
-  this.view.displayWinningPaylines(result.wins);
-
-  this.stateMachine.transition('CASCADING');
-
-  const cascadeResult = resolveCascades(result.grid);
-
-  for (const step of cascadeResult.steps) {
-    this.view.displayResult(step.grid);
-    this.view.displayWinningPaylines(step.wins);
-  }
-
-  this.stateMachine.transition('EVALUATING');
-
-  this.finishSpin({
-    grid: cascadeResult.finalGrid,
-    wins: cascadeResult.steps.flatMap((step) => step.wins),
-    totalWin: cascadeResult.totalWin,
-  });
-}
 
   private finishSpin(result: GameResult): void {
     this.balance += result.totalWin;
 
     this.view.displayResult(result.grid);
+    this.view.displayWinningPaylines([]);
     this.view.updateHud(
       this.balance,
       this.bet,
@@ -83,6 +97,7 @@ private evaluateResult(result: GameResult): void {
     );
 
     this.stateMachine.transition('IDLE');
+    this.view.setSpinEnabled(true);
   }
 
   private updateHud(win = 0): void {

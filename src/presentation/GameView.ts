@@ -123,6 +123,12 @@ export class GameView extends Container {
     this.addChild(spinText);
   }
 
+  setSpinEnabled(enabled: boolean): void {
+    this.spinButton.eventMode = enabled ? 'static' : 'none';
+    this.spinButton.cursor = enabled ? 'pointer' : 'default';
+    this.spinButton.alpha = enabled ? 1 : 0.5;
+  }
+
   displayResult(grid: ReelGrid): void {
     this.reelView.displayResult(grid);
   }
