@@ -1,5 +1,4 @@
 import type { SymbolId } from '../game/types';
-
 export interface SymbolPaytable {
   label: string;
   payouts: {
@@ -8,7 +7,6 @@ export interface SymbolPaytable {
     5: number;
   };
 }
-
 export const PAYTABLE: Record<SymbolId, SymbolPaytable> = {
   coffee: {
     label: 'COFFEE',

@@ -32,6 +32,7 @@ export class Game {
     this.balance += result.totalWin;
 
     this.view.displayResult(result.grid);
+    this.view.displayWinningPaylines(result.wins);
     this.updateHud(result.totalWin);
   }
 

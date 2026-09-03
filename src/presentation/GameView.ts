@@ -1,4 +1,5 @@
 import { Container, Graphics, Text } from 'pixi.js';
+import type { ReelGrid, WinResult } from '../game/types';
 import { ReelView } from './ReelView';
 
 export const GAME_WIDTH = 1000;
@@ -6,6 +7,7 @@ export const GAME_HEIGHT = 800;
 
 export class GameView extends Container {
   readonly spinButton: Graphics;
+
   private readonly reelView: ReelView;
   private readonly balanceText: Text;
   private readonly betText: Text;
@@ -121,8 +123,12 @@ export class GameView extends Container {
     this.addChild(spinText);
   }
 
-  displayResult(grid: Parameters<ReelView['displayResult']>[0]): void {
+  displayResult(grid: ReelGrid): void {
     this.reelView.displayResult(grid);
+  }
+
+  displayWinningPaylines(wins: WinResult[]): void {
+    this.reelView.displayWinningPaylines(wins);
   }
 
   updateHud(balance: number, bet: number, win: number): void {
