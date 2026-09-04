@@ -249,7 +249,10 @@ export class Game {
       this.devReceipt.gridAfterCollapse(step.collapsed);
       this.devReceipt.refill(step.refillDraws);
       cascadeGrid = cloneGrid(step.grid);
-      this.view.displayResult(cascadeGrid);
+      await this.view.animateCascadeStep(
+        step.removed,
+        cascadeGrid,
+      );
       this.view.displayWinningPaylines(cumulativeWins);
       this.currentGrid = cloneGrid(cascadeGrid);
       this.devReceipt.cascadeGrid(cascadeGrid);

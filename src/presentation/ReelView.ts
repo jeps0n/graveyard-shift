@@ -26,6 +26,12 @@ const SYMBOL_LABELS: Record<SymbolId, string> = {
   marge: 'MARGE',
   scatter: 'MIDNIGHT',
 };
+interface TileVisual {
+  readonly container: Container;
+  readonly cell: Graphics;
+  readonly label: Text;
+  readonly coordinate: Text;
+}
 const PAYLINE_COLORS = [
   0xff0000,
   0xff8000,
@@ -43,8 +49,9 @@ export class ReelView extends Container {
   private readonly paylineLayer: Container;
   private readonly reelLayers: Container[] = [];
   private readonly reelSpinners: Container[] = [];
-  private readonly symbolLabels: Text[][] = [];
+  private readonly reelTiles: TileVisual[][] = [];
   private readonly winningCells = new Map<string, Graphics>();
+  private displayedGrid: ReelGrid = [];
   constructor() {
     super();
     this.gridLayer = new Container();
@@ -58,6 +65,7 @@ export class ReelView extends Container {
     this.stopReelAnimation();
     this.gridLayer.removeChildren();
     this.createGrid(grid);
+    this.displayedGrid = grid.map((reel) => [...reel]);
   }
   async animateSpin(): Promise<void> {
     this.clearWinningPaylines();
@@ -122,6 +130,162 @@ export class ReelView extends Container {
         });
       });
     }
+  }
+  async animateCascadeStep(
+    removed: Array<{ reel: number; row: number }>,
+    grid: ReelGrid,
+  ): Promise<void> {
+    const removedByReel = new Map<number, Set<number>>();
+    for (const position of removed) {
+      let rows = removedByReel.get(position.reel);
+      if (!rows) {
+        rows = new Set<number>();
+        removedByReel.set(position.reel, rows);
+      }
+      rows.add(position.row);
+    }
+    // Winning symbols disappear as complete visual tiles.
+    const removedAnimations: Promise<void>[] = [];
+    for (const [reelIndex, rows] of removedByReel) {
+      const tiles = this.reelTiles[reelIndex];
+      if (!tiles) {
+        continue;
+      }
+      for (const row of rows) {
+        const tile = tiles[row];
+        if (!tile) {
+          continue;
+        }
+        removedAnimations.push(
+          new Promise<void>((resolve) => {
+            gsap.to(tile.container, {
+              alpha: 0,
+              duration: 0.16,
+              ease: 'power1.out',
+              onComplete: resolve,
+            });
+          }),
+        );
+      }
+    }
+    await Promise.all(removedAnimations);
+    // Only surviving tiles that need to move are animated. The entire tile
+    // container moves so its background, symbol, and coordinate stay together.
+    const collapseAnimations: Promise<void>[] = [];
+    for (let reelIndex = 0; reelIndex < grid.length; reelIndex++) {
+      const tiles = this.reelTiles[reelIndex];
+      const currentSymbols = this.displayedGrid[reelIndex];
+      const removedRows = removedByReel.get(reelIndex) ?? new Set<number>();
+      if (!tiles || !currentSymbols) {
+        continue;
+      }
+      const survivorRows: number[] = [];
+      for (let row = 0; row < currentSymbols.length; row++) {
+        if (!removedRows.has(row)) {
+          survivorRows.push(row);
+        }
+      }
+      const emptyCount = removedRows.size;
+      for (let survivorIndex = 0; survivorIndex < survivorRows.length; survivorIndex++) {
+        const sourceRow = survivorRows[survivorIndex];
+        const targetRow = emptyCount + survivorIndex;
+        const tile = tiles[sourceRow];
+        if (!tile || sourceRow === targetRow) {
+          continue;
+        }
+        tile.coordinate.text = `(${reelIndex + 1},${targetRow + 1})`;
+        collapseAnimations.push(
+          new Promise<void>((resolve) => {
+            gsap.to(tile.container, {
+              y: targetRow * (REEL_HEIGHT + GAP),
+              duration: 0.24,
+              ease: 'power2.in',
+              onComplete: resolve,
+            });
+          }),
+        );
+      }
+    }
+    await Promise.all(collapseAnimations);
+    // The faded tiles are no longer part of the visible reel. Survivors keep
+    // their existing containers so their identity is preserved across steps.
+    for (const [reelIndex, rows] of removedByReel) {
+      const spinner = this.reelSpinners[reelIndex];
+      const tiles = this.reelTiles[reelIndex];
+      if (!spinner || !tiles) {
+        continue;
+      }
+      for (const row of rows) {
+        const tile = tiles[row];
+        if (tile) {
+          spinner.removeChild(tile.container);
+        }
+      }
+    }
+    // New symbols are created as complete tiles above the visible window and
+    // fall into exactly the positions opened by the removed symbols.
+    const nextTilesByReel: TileVisual[][] = [];
+    const refillAnimations: Promise<void>[] = [];
+    for (let reelIndex = 0; reelIndex < grid.length; reelIndex++) {
+      const spinner = this.reelSpinners[reelIndex];
+      const tiles = this.reelTiles[reelIndex];
+      const removedRows = removedByReel.get(reelIndex) ?? new Set<number>();
+      if (!spinner || !tiles) {
+        nextTilesByReel.push(tiles ?? []);
+        continue;
+      }
+      const refillCount = removedRows.size;
+      const survivorTiles: TileVisual[] = [];
+      for (let row = 0; row < tiles.length; row++) {
+        if (!removedRows.has(row)) {
+          survivorTiles.push(tiles[row]);
+        }
+      }
+      const refillTiles: TileVisual[] = [];
+      for (let refillIndex = 0; refillIndex < refillCount; refillIndex++) {
+        const targetRow = refillIndex;
+        const tile = this.createTile(
+          grid[reelIndex][targetRow],
+          reelIndex,
+          targetRow,
+        );
+        const startRow = -(refillCount - refillIndex);
+        tile.container.y = startRow * (REEL_HEIGHT + GAP);
+        spinner.addChild(tile.container);
+        refillTiles.push(tile);
+        refillAnimations.push(
+          new Promise<void>((resolve) => {
+            gsap.to(tile.container, {
+              y: targetRow * (REEL_HEIGHT + GAP),
+              duration: 0.28,
+              ease: 'back.out(1.2)',
+              onComplete: resolve,
+            });
+          }),
+        );
+      }
+      nextTilesByReel.push([
+        ...refillTiles,
+        ...survivorTiles,
+      ]);
+    }
+    await Promise.all(refillAnimations);
+    // Re-index both tile references and winning-cell references to match the
+    // new logical grid before the next evaluation/cascade can begin.
+    this.winningCells.clear();
+    for (let reelIndex = 0; reelIndex < nextTilesByReel.length; reelIndex++) {
+      const tiles = nextTilesByReel[reelIndex];
+      this.reelTiles[reelIndex] = tiles;
+      for (let row = 0; row < tiles.length; row++) {
+        const tile = tiles[row];
+        tile.coordinate.text = `(${reelIndex + 1},${row + 1})`;
+        this.winningCells.set(
+          `${reelIndex},${row}`,
+          tile.cell,
+        );
+      }
+    }
+    this.displayedGrid = grid.map((reel) => [...reel]);
   }
   async animateWinningSymbols(
     wins: WinResult[],
@@ -201,17 +365,16 @@ export class ReelView extends Container {
     reelIndex: number,
     symbols: ReelGrid[number],
   ): void {
-    const labels =
-      this.symbolLabels[reelIndex];
-    if (!labels) {
+    const tiles = this.reelTiles[reelIndex];
+    if (!tiles) {
       return;
     }
     for (
       let row = 0;
-      row < labels.length && row < symbols.length;
+      row < tiles.length && row < symbols.length;
       row++
     ) {
-      labels[row].text =
+      tiles[row].label.text =
         SYMBOL_LABELS[symbols[row]];
     }
   }
@@ -244,7 +407,7 @@ export class ReelView extends Container {
     console.log('[ReelView] createGrid called', grid);
     this.reelLayers.length = 0;
     this.reelSpinners.length = 0;
-    this.symbolLabels.length = 0;
+    this.reelTiles.length = 0;
     this.winningCells.clear();
     for (
       let reel = 0;
@@ -268,59 +431,78 @@ export class ReelView extends Container {
       this.gridLayer.addChild(reelLayer);
       this.reelLayers.push(reelLayer);
       this.reelSpinners.push(reelSpinner);
-      this.symbolLabels.push([]);
+      const tiles: TileVisual[] = [];
       for (
         let row = 0;
         row < grid[reel].length;
         row++
       ) {
-        const symbol = grid[reel][row];
-        const cell = new Graphics()
-          .roundRect(
-            0,
-            row * (REEL_HEIGHT + GAP),
-            REEL_WIDTH,
-            REEL_HEIGHT,
-            10,
-          )
-          .fill(0x20252c)
-          .stroke({
-            width: 2,
-            color: 0x555d68,
-          });
+        const tile = this.createTile(
+          grid[reel][row],
+          reel,
+          row,
+        );
+        reelSpinner.addChild(tile.container);
+        tiles.push(tile);
         this.winningCells.set(
           `${reel},${row}`,
-          cell,
+          tile.cell,
         );
-        reelSpinner.addChild(cell);
-        const label = new Text({
-          text: SYMBOL_LABELS[symbol],
-          style: {
-            fill: 0xffffff,
-            fontSize: 16,
-            fontWeight: 'bold',
-            align: 'center',
-          },
-        });
-        label.anchor.set(0.5);
-        this.symbolLabels[reel].push(label);
-        label.x = REEL_WIDTH / 2;
-        label.y =
-          row * (REEL_HEIGHT + GAP) +
-          REEL_HEIGHT / 2;
-        reelSpinner.addChild(label);
-        const coordinate = new Text({
-          text: `(${reel + 1},${row + 1})`,
-          style: {
-            fill: 0xaaaaaa,
-            fontSize: 12,
-          },
-        });
-        coordinate.x = 8;
-        coordinate.y =
-          row * (REEL_HEIGHT + GAP) + 8;
-        reelSpinner.addChild(coordinate);
       }
+      this.reelTiles.push(tiles);
     }
+  }
+  private createTile(
+    symbol: SymbolId,
+    reel: number,
+    row: number,
+  ): TileVisual {
+    const tileContainer = new Container();
+    tileContainer.x = 0;
+    tileContainer.y =
+      row * (REEL_HEIGHT + GAP);
+    const cell = new Graphics()
+      .roundRect(
+        0,
+        0,
+        REEL_WIDTH,
+        REEL_HEIGHT,
+        10,
+      )
+      .fill(0x20252c)
+      .stroke({
+        width: 2,
+        color: 0x555d68,
+      });
+    tileContainer.addChild(cell);
+    const label = new Text({
+      text: SYMBOL_LABELS[symbol],
+      style: {
+        fill: 0xffffff,
+        fontSize: 16,
+        fontWeight: 'bold',
+        align: 'center',
+      },
+    });
+    label.anchor.set(0.5);
+    label.x = REEL_WIDTH / 2;
+    label.y = REEL_HEIGHT / 2;
+    tileContainer.addChild(label);
+    const coordinate = new Text({
+      text: `(${reel + 1},${row + 1})`,
+      style: {
+        fill: 0xaaaaaa,
+        fontSize: 12,
+      },
+    });
+    coordinate.x = 8;
+    coordinate.y = 8;
+    tileContainer.addChild(coordinate);
+    return {
+      container: tileContainer,
+      cell,
+      label,
+      coordinate,
+    };
   }
 }

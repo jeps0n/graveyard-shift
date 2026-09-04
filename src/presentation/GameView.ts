@@ -303,6 +303,15 @@ export class GameView extends Container {
   ): Promise<void> {
     await this.reelView.animateReelStops(grid);
   }
+  async animateCascadeStep(
+    removed: Array<{ reel: number; row: number }>,
+    grid: ReelGrid,
+  ): Promise<void> {
+    await this.reelView.animateCascadeStep(
+      removed,
+      grid,
+    );
+  }
   async animateWinningSymbols(
     wins: WinResult[],
   ): Promise<void> {
