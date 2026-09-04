@@ -8,6 +8,9 @@ import type {
 import { PAYLINES } from './Paylines';
 import { PAYTABLE } from './Paytable';
 import { rng } from './RNG';
+// Each reel has its own weighted symbol distribution.
+// Higher weights make a symbol more common on that reel.
+// These weights are converted into discrete reel strips below.
 const REEL_WEIGHTS: Record<SymbolId, number[]> = {
   coffee: [12, 12, 13, 13, 13],
   burger: [11, 11, 11, 12, 12],
@@ -21,6 +24,9 @@ const REEL_WEIGHTS: Record<SymbolId, number[]> = {
   marge: [2, 2, 2, 1, 1],
   scatter: [2, 2, 2, 2, 1],
 };
+// Convert weighted symbol counts into a discrete reel strip.
+// Selecting a random position from the strip gives each symbol
+// a probability proportional to its weight.
 function buildReel(reelIndex: number): SymbolId[] {
   const strip: SymbolId[] = [];
   for (const symbol of Object.keys(
@@ -83,6 +89,8 @@ function cloneGrid(
 ): ReelGrid {
   return grid.map((reel) => [...reel]);
 }
+// Draw one symbol from the selected reel's weighted strip.
+// The trace records the draw so a spin can be reproduced and inspected.
 function randomSymbol(
   reelIndex: number,
   row: number,
@@ -137,6 +145,10 @@ function getWinningPositions(
       row,
     }));
 }
+// Evaluate a single payline from left to right.
+// Marge acts as a wild and can substitute for the target symbol.
+// Scatter does not start a payline win.
+// A win requires at least three consecutive matching positions.
 function evaluatePayline(
   grid: ReelGrid,
   payline: number[],
@@ -289,15 +301,8 @@ export function evaluateWins(
     evaluations,
   };
 }
-/*
- * IMPORTANT:
- * null means an empty position during
- * cascade processing.
- *
- * 'scatter' is always a real game symbol
- * and must never be used as an internal
- * empty-slot marker.
- */
+// null represents an empty position during cascade processing.
+// Scatter remains a real game symbol and is never used as an empty marker.
 function removeWinningSymbols(
   grid: ReelGrid,
   wins: WinResult[],
@@ -339,6 +344,8 @@ function removeWinningSymbols(
     removed,
   };
 }
+// Collapse each reel downward after winning symbols are removed.
+// Empty positions remain at the top until the refill step.
 function collapseReels(
   grid: Array<
     Array<SymbolId | null>
@@ -366,6 +373,9 @@ function collapseReels(
     ];
   });
 }
+// Refill the empty positions created by the cascade.
+// The number of replacements is based on how many symbols
+// were removed from each reel.
 function refillReels(
   grid: Array<
     Array<SymbolId | null>
@@ -502,6 +512,9 @@ export function resolveCascadeStep(
     refillDraws: refill.draws,
   };
 }
+// Resolve cascades until the current grid produces no wins.
+// Each step records the winning grid, payout, and resulting grid
+// so the presentation layer can animate the complete sequence.
 export function resolveCascades(
   initialGrid: ReelGrid,
 ): CascadeResult {
