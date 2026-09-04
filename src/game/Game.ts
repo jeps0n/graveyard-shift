@@ -97,6 +97,11 @@ export class Game {
     this.stateMachine.transition(
       'SPINNING',
     );
+    console.log('[Game] starting reel animation');
+    await this.view.animateSpin();
+    const primary = generatePrimaryGrid();
+    this.currentGrid = cloneGrid(primary.grid);
+    await this.view.animateReelStops(primary.grid);
     this.devReceipt.event(
       'STATE TRANSITION',
       [
@@ -135,12 +140,7 @@ export class Game {
         this.currentGrid,
       ),
     );
-    const primary =
-      generatePrimaryGrid();
-    this.currentGrid =
-      cloneGrid(
-        primary.grid,
-      );
+    console.log('[Game] using generated primary grid');
     this.devReceipt.primaryGrid(
       primary.grid,
     );
@@ -218,6 +218,7 @@ export class Game {
     this.view.displayWinningPaylines(
       result.wins,
     );
+    await this.view.animateWinningSymbols(result.wins);
     this.devReceipt.event(
       'WIN PRESENTATION',
       [

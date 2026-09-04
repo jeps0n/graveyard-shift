@@ -295,6 +295,19 @@ export class GameView extends Container {
       },
     );
   }
+  async animateSpin(): Promise<void> {
+    await this.reelView.animateSpin();
+  }
+  async animateReelStops(
+    grid: ReelGrid,
+  ): Promise<void> {
+    await this.reelView.animateReelStops(grid);
+  }
+  async animateWinningSymbols(
+    wins: WinResult[],
+  ): Promise<void> {
+    await this.reelView.animateWinningSymbols(wins);
+  }
   displayResult(
     grid: ReelGrid,
   ): void {
