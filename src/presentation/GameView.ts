@@ -3,6 +3,7 @@ import {
   Graphics,
   Text,
 } from 'pixi.js';
+import { gsap } from 'gsap';
 import type {
   ReelGrid,
   WinResult,
@@ -10,7 +11,10 @@ import type {
 import { ReelView } from './ReelView';
 export const GAME_WIDTH = 1000;
 export const GAME_HEIGHT = 800;
-type MidnightChoice = 'A' | 'B' | 'C';
+type MidnightChoice =
+  | 'gasCan'
+  | 'candyBar'
+  | 'plushDoll';
 export class GameView extends Container {
   readonly spinButton: Graphics;
   private readonly reelView: ReelView;
@@ -146,154 +150,247 @@ export class GameView extends Container {
       choice: MidnightChoice,
     ) => number,
   ): Promise<number> {
-    return new Promise(
-      (resolve) => {
-        const overlay =
-          new Container();
-        const panel =
-          new Graphics()
-            .roundRect(
-              180,
-              170,
-              640,
-              410,
-              24,
-            )
-            .fill(0x11151a)
-            .stroke({
-              width: 4,
-              color: 0x8b1e2d,
+    return new Promise((resolve) => {
+      const overlay = new Container();
+      overlay.alpha = 0;
+      const backdrop = new Graphics()
+        .rect(0, 0, GAME_WIDTH, GAME_HEIGHT)
+        .fill({ color: 0x05070a, alpha: 0.78 });
+      overlay.addChild(backdrop);
+      const panel = new Graphics()
+        .roundRect(180, 170, 640, 410, 24)
+        .fill(0x11151a)
+        .stroke({
+          width: 4,
+          color: 0x8b1e2d,
+        });
+      panel.pivot.set(500, 375);
+      panel.x = 500;
+      panel.y = 375;
+      panel.scale.set(0.96);
+      overlay.addChild(panel);
+      const title = new Text({
+        text: 'AFTER MIDNIGHT',
+        style: {
+          fill: 0xffffff,
+          fontSize: 38,
+          fontWeight: 'bold',
+        },
+      });
+      title.anchor.set(0.5);
+      title.x = GAME_WIDTH / 2;
+      title.y = 225;
+      overlay.addChild(title);
+      const subtitle = new Text({
+        text: 'PICK YOUR FATE',
+        style: {
+          fill: 0x999999,
+          fontSize: 18,
+        },
+      });
+      subtitle.anchor.set(0.5);
+      subtitle.x = GAME_WIDTH / 2;
+      subtitle.y = 265;
+      overlay.addChild(subtitle);
+      const choices: MidnightChoice[] = [
+        'gasCan',
+        'candyBar',
+        'plushDoll',
+      ];
+      const labels: Record<MidnightChoice, string> = {
+        gasCan: 'GAS CAN',
+        candyBar: 'CANDY BAR',
+        plushDoll: 'PLUSH DOLL',
+      };
+      const xPositions = [300, 500, 700];
+      const cards = new Map<
+        MidnightChoice,
+        {
+          container: Container;
+          button: Graphics;
+          label: Text;
+          multiplier: Text;
+        }
+      >();
+      let selected = false;
+      let selectedMultiplier = 1;
+      const footer = new Text({
+        text: 'ONE CHOICE. ONE MULTIPLIER. NEXT SPIN ONLY.',
+        style: {
+          fill: 0x777777,
+          fontSize: 14,
+        },
+      });
+      footer.anchor.set(0.5);
+      footer.x = GAME_WIDTH / 2;
+      footer.y = 510;
+      overlay.addChild(footer);
+      choices.forEach((choice, index) => {
+        const card = new Container();
+        card.x = xPositions[index];
+        card.y = 410;
+        card.alpha = 0;
+        card.scale.set(0.82);
+        const button = new Graphics()
+          .roundRect(-75, -60, 150, 120, 16)
+          .fill(0x242a31)
+          .stroke({
+            width: 3,
+            color: 0x444b55,
+          });
+        card.addChild(button);
+        const label = new Text({
+          text: labels[choice],
+          style: {
+            fill: 0xffffff,
+            fontSize: 17,
+            fontWeight: 'bold',
+          },
+        });
+        label.anchor.set(0.5);
+        label.y = -18;
+        card.addChild(label);
+        const multiplier = new Text({
+          text: '?',
+          style: {
+            fill: 0xb56cff,
+            fontSize: 42,
+            fontWeight: 'bold',
+          },
+        });
+        multiplier.anchor.set(0.5);
+        multiplier.y = 28;
+        card.addChild(multiplier);
+        button.eventMode = 'static';
+        button.cursor = 'pointer';
+        button.on('pointertap', () => {
+          if (selected) {
+            return;
+          }
+          selected = true;
+          selectedMultiplier = resolveChoice(choice);
+          const selectedCard = cards.get(choice);
+          if (!selectedCard) {
+            return;
+          }
+          cards.forEach((other, otherChoice) => {
+            other.button.eventMode = 'none';
+            other.button.cursor = 'default';
+            if (otherChoice === choice) {
+              return;
+            }
+            gsap.to(other.container, {
+              alpha: 0.48,
+              scale: 0.94,
+              duration: 0.22,
+              ease: 'power2.out',
             });
-        overlay.addChild(panel);
-        const title =
-          new Text({
-            text: 'AFTER MIDNIGHT',
-            style: {
-              fill: 0xffffff,
-              fontSize: 38,
-              fontWeight: 'bold',
-            },
           });
-        title.anchor.set(0.5);
-        title.x = GAME_WIDTH / 2;
-        title.y = 225;
-        overlay.addChild(title);
-        const subtitle =
-          new Text({
-            text: 'PICK YOUR FATE',
-            style: {
-              fill: 0x999999,
-              fontSize: 18,
-            },
+          subtitle.text = 'YOUR NEXT SPIN MULTIPLIER';
+          footer.text = 'REVEALING ALL THREE OUTCOMES…';
+          gsap.to(selectedCard.container.scale, {
+            x: 1.08,
+            y: 1.08,
+            duration: 0.18,
+            ease: 'back.out(1.7)',
           });
-        subtitle.anchor.set(0.5);
-        subtitle.x = GAME_WIDTH / 2;
-        subtitle.y = 265;
-        overlay.addChild(subtitle);
-        const choices:
-          MidnightChoice[] = [
-            'A',
-            'B',
-            'C',
-          ];
-        const xPositions = [
-          300,
-          500,
-          700,
-        ];
-        const buttons: Graphics[] = [];
-        let selected = false;
-        const footer =
-          new Text({
-            text:
-              'ONE CHOICE. ONE MULTIPLIER. NEXT SPIN ONLY.',
-            style: {
-              fill: 0x777777,
-              fontSize: 14,
-            },
-          });
-        footer.anchor.set(0.5);
-        footer.x = GAME_WIDTH / 2;
-        footer.y = 510;
-        overlay.addChild(footer);
-        choices.forEach(
-          (choice, index) => {
-            const button =
-              new Graphics()
-                .roundRect(
-                  xPositions[index] - 75,
-                  330,
-                  150,
-                  120,
-                  16,
-                )
-                .fill(0x242a31)
-                .stroke({
-                  width: 3,
-                  color: 0x444b55,
-                });
-            button.eventMode =
-              'static';
-            button.cursor =
-              'pointer';
-            const choiceText =
-              new Text({
-                text:
-                  `MYSTERY ${choice}`,
-                style: {
-                  fill: 0xffffff,
-                  fontSize: 18,
-                  fontWeight: 'bold',
+          const revealTimeline = gsap.timeline({
+            onComplete: () => {
+              footer.text = 'ONE SPIN ONLY. MAKE IT COUNT.';
+              gsap.to(overlay, {
+                alpha: 0,
+                delay: 0.7,
+                duration: 0.28,
+                ease: 'power2.in',
+                onComplete: () => {
+                  overlay.destroy({ children: true });
+                  resolve(selectedMultiplier);
                 },
               });
-            choiceText.anchor.set(0.5);
-            choiceText.x =
-              xPositions[index];
-            choiceText.y = 390;
-            button.on(
-              'pointertap',
-              () => {
-                if (selected) {
-                  return;
-                }
-                selected = true;
-                const multiplier =
-                  resolveChoice(choice);
-                buttons.forEach(
-                  (otherButton) => {
-                    otherButton.eventMode =
-                      'none';
-                    otherButton.cursor =
-                      'default';
-                    otherButton.alpha =
-                      0.4;
-                  },
-                );
-                button.alpha = 1;
-                choiceText.text =
-                  `×${multiplier}`;
-                choiceText.style.fontSize =
-                  42;
-                subtitle.text =
-                  'YOUR NEXT SPIN MULTIPLIER';
-                footer.text =
-                  'ONE SPIN ONLY. MAKE IT COUNT.';
-                setTimeout(() => {
-                  overlay.destroy({
-                    children: true,
-                  });
-                  resolve(multiplier);
-                }, 1200);
-              },
-            );
-            buttons.push(button);
-            overlay.addChild(button);
-            overlay.addChild(choiceText);
-          },
-        );
-        this.addChild(overlay);
-      },
-    );
+            },
+          });
+          revealTimeline
+            .to(selectedCard.multiplier.scale, {
+              x: 0,
+              duration: 0.14,
+              ease: 'power2.in',
+            })
+            .call(() => {
+              selectedCard.multiplier.text = `×${selectedMultiplier}`;
+            })
+            .to(selectedCard.multiplier.scale, {
+              x: 1,
+              duration: 0.22,
+              ease: 'back.out(2.2)',
+            });
+          choices.forEach((otherChoice) => {
+            if (otherChoice === choice) {
+              return;
+            }
+            const other = cards.get(otherChoice);
+            if (!other) {
+              return;
+            }
+            const otherMultiplier = resolveChoice(otherChoice);
+            revealTimeline
+              .to(
+                other.multiplier.scale,
+                {
+                  x: 0,
+                  duration: 0.12,
+                  ease: 'power2.in',
+                },
+                '+=0.22',
+              )
+              .call(() => {
+                other.multiplier.text = `×${otherMultiplier}`;
+              })
+              .to(other.multiplier.scale, {
+                x: 0.9,
+                duration: 0.2,
+                ease: 'back.out(1.5)',
+              });
+          });
+        });
+        cards.set(choice, {
+          container: card,
+          button,
+          label,
+          multiplier,
+        });
+        overlay.addChild(card);
+      });
+      this.addChild(overlay);
+      gsap.fromTo(
+        overlay,
+        { alpha: 0 },
+        {
+          alpha: 1,
+          duration: 0.28,
+          ease: 'power2.out',
+        },
+      );
+      gsap.to(panel.scale, {
+        x: 1,
+        y: 1,
+        duration: 0.32,
+        ease: 'back.out(1.3)',
+      });
+      choices.forEach((choice, index) => {
+        const card = cards.get(choice);
+        if (!card) {
+          return;
+        }
+        gsap.to(card.container, {
+          alpha: 1,
+          y: 390,
+          scale: 1,
+          duration: 0.3,
+          delay: 0.12 + index * 0.08,
+          ease: 'back.out(1.6)',
+        });
+      });
+    });
   }
   async animateSpin(): Promise<void> {
     await this.reelView.animateSpin();

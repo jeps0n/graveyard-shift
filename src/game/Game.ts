@@ -16,6 +16,7 @@ import type {
 } from './types';
 const CASCADE_DELAY = 800;
 const SCATTER_TRIGGER_COUNT = 3;
+const FORCE_AFTER_MIDNIGHT = true;
 const INITIAL_DISPLAYED_GRID: ReelGrid = [
   ['coffee', 'burger', 'gas'],
   ['chip', 'dice', 'zed'],
@@ -193,6 +194,7 @@ export class Game {
           result.grid,
         );
       if (
+        FORCE_AFTER_MIDNIGHT ||
         scatterCount >=
         SCATTER_TRIGGER_COUNT
       ) {
@@ -306,6 +308,7 @@ export class Game {
         result.grid,
       );
     if (
+      FORCE_AFTER_MIDNIGHT ||
       scatterCount >=
       SCATTER_TRIGGER_COUNT
     ) {

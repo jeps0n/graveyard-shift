@@ -1,5 +1,5 @@
 import { rng } from '../math/RNG';
-export type MidnightChoice = 'A' | 'B' | 'C';
+export type MidnightChoice = 'gasCan' | 'candyBar' | 'plushDoll';
 const POSSIBLE_MULTIPLIERS = [2, 5, 10];
 export class AfterMidnight {
   private readonly outcomes: Record<MidnightChoice, number>;
@@ -10,9 +10,9 @@ export class AfterMidnight {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     this.outcomes = {
-      A: shuffled[0],
-      B: shuffled[1],
-      C: shuffled[2],
+      gasCan: shuffled[0],
+      candyBar: shuffled[1],
+      plushDoll: shuffled[2],
     };
   }
   choose(choice: MidnightChoice): number {
