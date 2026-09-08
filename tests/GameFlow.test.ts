@@ -1,20 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReelGrid, WinResult } from '../src/game/types';
-
 const mathMocks = vi.hoisted(() => ({
   generatePrimaryGrid: vi.fn(),
   evaluatePrimaryGrid: vi.fn(),
   evaluateWins: vi.fn(),
   resolveCascadeStep: vi.fn(),
 }));
-
 vi.mock('../src/math/GameMath', () => mathMocks);
-
 vi.mock('../src/presentation/GameView', () => {
   class MockButton {
     on = vi.fn();
   }
-
   return {
     GameView: class {
       spinButton = new MockButton();
@@ -24,7 +20,7 @@ vi.mock('../src/presentation/GameView', () => {
       bet5Button = new MockButton();
       bet25Button = new MockButton();
       maxBetButton = new MockButton();
-
+      clearBetButton = new MockButton();
       clearWinningPaylines = vi.fn();
       animateSpin = vi.fn(async () => undefined);
       animateReelStops = vi.fn(async () => undefined);
@@ -34,15 +30,21 @@ vi.mock('../src/presentation/GameView', () => {
       animateWinningSymbols = vi.fn(async () => undefined);
       animateCascadeStep = vi.fn(async () => undefined);
       animateWagerBeat = vi.fn();
+      animateBalanceDeductionBeat = vi.fn(async () => undefined);
+      animateWinCreditBeat = vi.fn(async () => undefined);
+      animateBalanceCreditBeat = vi.fn(async () => undefined);
+      animatePayoutBeat = vi.fn(async () => undefined);
+      setSpinBusy = vi.fn();
+      setNextSpinMultiplier = vi.fn();
+      setDevMode = vi.fn();
+      updateReplayHud = vi.fn();
       updateHud = vi.fn();
-
       showAfterMidnight = vi.fn(
         async (_resolveChoice: (choice: 'gasCan' | 'candyBar' | 'plushDoll') => number) => 5,
       );
     },
   };
 });
-
 vi.mock('../src/presentation/DevReceipt', () => {
   return {
     DevReceipt: class {
@@ -66,9 +68,7 @@ vi.mock('../src/presentation/DevReceipt', () => {
     },
   };
 });
-
 import { Game } from '../src/game/Game';
-
 const NO_WIN_GRID: ReelGrid = [
   ['coffee', 'burger', 'gas'],
   ['burger', 'gas', 'chip'],
@@ -76,7 +76,6 @@ const NO_WIN_GRID: ReelGrid = [
   ['chip', 'dice', 'gary'],
   ['dice', 'gary', 'zed'],
 ];
-
 const THREE_SCATTER_GRID: ReelGrid = [
   ['scatter', 'burger', 'gas'],
   ['coffee', 'scatter', 'chip'],
@@ -84,7 +83,6 @@ const THREE_SCATTER_GRID: ReelGrid = [
   ['chip', 'dice', 'gary'],
   ['dice', 'gary', 'zed'],
 ];
-
 const FOUR_SCATTER_GRID: ReelGrid = [
   ['scatter', 'burger', 'scatter'],
   ['coffee', 'scatter', 'chip'],
@@ -92,7 +90,6 @@ const FOUR_SCATTER_GRID: ReelGrid = [
   ['chip', 'dice', 'gary'],
   ['dice', 'gary', 'zed'],
 ];
-
 const PRIMARY_WIN_GRID: ReelGrid = [
   ['coffee', 'burger', 'gas'],
   ['coffee', 'gas', 'chip'],
@@ -100,11 +97,9 @@ const PRIMARY_WIN_GRID: ReelGrid = [
   ['zed', 'dice', 'gary'],
   ['victor', 'gary', 'zed'],
 ];
-
 function cloneGrid(grid: ReelGrid): ReelGrid {
   return grid.map((reel) => [...reel]);
 }
-
 function makeWin(
   payoutMultiplier: number,
   symbol: WinResult['symbol'] = 'coffee',
@@ -121,14 +116,12 @@ function makeWin(
     ],
   };
 }
-
 function primaryTrace(grid: ReelGrid) {
   return {
     draws: [],
     grid: cloneGrid(grid),
   };
 }
-
 function primaryResult(
   grid: ReelGrid,
   wins: WinResult[],
@@ -147,7 +140,6 @@ function primaryResult(
     },
   };
 }
-
 function cascadeStepResult(grid: ReelGrid) {
   return {
     grid: cloneGrid(grid),
@@ -165,39 +157,40 @@ function cascadeStepResult(grid: ReelGrid) {
     refillDraws: [],
   };
 }
-
 function createGame() {
   const app = {
     stage: {
       addChild: vi.fn(),
     },
   };
-
   return new Game(app as never);
 }
-
 async function runSpin(game: Game): Promise<void> {
   await (game as unknown as { handleSpin: () => Promise<void> }).handleSpin();
 }
-
 function setBet(game: Game, bet: number): void {
   (game as unknown as { bet: number }).bet = bet;
 }
-
 function setNextSpinMultiplier(game: Game, multiplier: number): void {
   (game as unknown as { nextSpinMultiplier: number }).nextSpinMultiplier =
     multiplier;
 }
-
+function getBet(game: Game): number {
+  return (game as unknown as { bet: number }).bet;
+}
+function getBetIncrement(game: Game): number {
+  return (game as unknown as { betIncrement: number }).betIncrement;
+}
+function clearBet(game: Game): void {
+  (game as unknown as { clearBet: () => void }).clearBet();
+}
 function getBalance(game: Game): number {
   return (game as unknown as { balance: number }).balance;
 }
-
 function getNextSpinMultiplier(game: Game): number {
   return (game as unknown as { nextSpinMultiplier: number })
     .nextSpinMultiplier;
 }
-
 function getState(game: Game): string {
   return (
     game as unknown as {
@@ -205,16 +198,13 @@ function getState(game: Game): string {
     }
   ).stateMachine.current;
 }
-
 function mockNoWinSpin(grid: ReelGrid = NO_WIN_GRID): void {
   const primary = primaryTrace(grid);
-
   mathMocks.generatePrimaryGrid.mockReturnValueOnce(primary);
   mathMocks.evaluatePrimaryGrid.mockReturnValueOnce(
     primaryResult(grid, []),
   );
 }
-
 function mockWinningSpin(options: {
   primaryWins: WinResult[];
   finalGrid?: ReelGrid;
@@ -225,9 +215,7 @@ function mockWinningSpin(options: {
     finalGrid = NO_WIN_GRID,
     cascadeWins = [],
   } = options;
-
   const primary = primaryTrace(PRIMARY_WIN_GRID);
-
   mathMocks.generatePrimaryGrid.mockReturnValueOnce(primary);
   mathMocks.evaluatePrimaryGrid.mockReturnValueOnce(
     primaryResult(PRIMARY_WIN_GRID, primaryWins),
@@ -239,7 +227,6 @@ function mockWinningSpin(options: {
     wins: cascadeWins,
     evaluations: [],
   });
-
   if (cascadeWins.length > 0) {
     mathMocks.resolveCascadeStep.mockReturnValueOnce(
       cascadeStepResult(finalGrid),
@@ -250,15 +237,12 @@ function mockWinningSpin(options: {
     });
   }
 }
-
 describe('Game flow contract', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-
+    vi.resetAllMocks();
     vi.stubGlobal('window', {
       addEventListener: vi.fn(),
     });
-
     vi.spyOn(globalThis, 'setTimeout').mockImplementation(
       ((callback: TimerHandler) => {
         if (typeof callback === 'function') {
@@ -268,32 +252,49 @@ describe('Game flow contract', () => {
       }) as typeof setTimeout,
     );
   });
-
-  it('deducts the wager exactly once for a completed losing spin', async () => {
+  it('clears the wager to zero without changing balance or selected increment', () => {
+    const game = createGame();
+    setBet(game, 25);
+    (game as unknown as { betIncrement: number }).betIncrement = 5;
+    const balanceBeforeClear = getBalance(game);
+    const view = game.view as unknown as {
+      updateHud: ReturnType<typeof vi.fn>;
+      animateWagerBeat: ReturnType<typeof vi.fn>;
+    };
+    clearBet(game);
+    expect(getBet(game)).toBe(0);
+    expect(getBetIncrement(game)).toBe(5);
+    expect(getBalance(game)).toBe(balanceBeforeClear);
+    expect(view.updateHud).toHaveBeenLastCalledWith(100, 0, 0, 5);
+    expect(view.animateWagerBeat).toHaveBeenCalledTimes(1);
+  });
+  it('does not start a spin when the wager has been cleared', async () => {
     mockNoWinSpin();
-
     const game = createGame();
     setBet(game, 10);
-
+    clearBet(game);
     await runSpin(game);
-
+    expect(getBalance(game)).toBe(100);
+    expect(getState(game)).toBe('IDLE');
+    expect(mathMocks.generatePrimaryGrid).not.toHaveBeenCalled();
+  });
+  it('deducts the wager exactly once for a completed losing spin', async () => {
+    mockNoWinSpin();
+    const game = createGame();
+    setBet(game, 10);
+    await runSpin(game);
     expect(getBalance(game)).toBe(90);
     expect(getState(game)).toBe('IDLE');
   });
-
   it('pays line wins using the total wager', async () => {
     mockWinningSpin({
       primaryWins: [makeWin(3)],
     });
-
     const game = createGame();
     setBet(game, 10);
-
     await runSpin(game);
-
     expect(getBalance(game)).toBe(120);
   });
-
   it('adds multiple primary line-win multipliers before applying the wager', async () => {
     mockWinningSpin({
       primaryWins: [
@@ -301,99 +302,73 @@ describe('Game flow contract', () => {
         { ...makeWin(5, 'marge'), payline: 2 },
       ],
     });
-
     const game = createGame();
     setBet(game, 10);
-
     await runSpin(game);
-
     expect(getBalance(game)).toBe(160);
   });
-
   it('accumulates primary and cascade wins into one spin payout', async () => {
     mockWinningSpin({
       primaryWins: [makeWin(2)],
       cascadeWins: [makeWin(5, 'marge')],
     });
-
     const game = createGame();
     setBet(game, 10);
-
     await runSpin(game);
-
     expect(getBalance(game)).toBe(160);
     expect(mathMocks.resolveCascadeStep).toHaveBeenCalledTimes(2);
   });
-
   it('applies an armed multiplier to the entire spin including cascade wins', async () => {
     mockWinningSpin({
       primaryWins: [makeWin(2)],
       cascadeWins: [makeWin(3, 'dice')],
     });
-
     const game = createGame();
     setBet(game, 10);
     setNextSpinMultiplier(game, 5);
-
     await runSpin(game);
-
     expect(getBalance(game)).toBe(340);
   });
-
   it('consumes the armed multiplier when the spin starts and resets stored multiplier to x1', async () => {
     mockNoWinSpin();
-
     const game = createGame();
     setBet(game, 10);
     setNextSpinMultiplier(game, 5);
-
     await runSpin(game);
-
     expect(getBalance(game)).toBe(90);
     expect(getNextSpinMultiplier(game)).toBe(1);
   });
-
   it('does not apply a newly won After Midnight multiplier to the triggering spin', async () => {
     mockWinningSpin({
       primaryWins: [makeWin(2)],
       finalGrid: THREE_SCATTER_GRID,
     });
-
     const game = createGame();
     setBet(game, 10);
-
     const view = game.view as unknown as {
       showAfterMidnight: ReturnType<typeof vi.fn>;
     };
     view.showAfterMidnight.mockResolvedValueOnce(10);
-
     await runSpin(game);
-
     expect(getBalance(game)).toBe(110);
     expect(getNextSpinMultiplier(game)).toBe(10);
     expect(view.showAfterMidnight).toHaveBeenCalledTimes(1);
   });
-
   it('triggers After Midnight once when the final resolved grid has 3 or more Scatters', async () => {
     mockWinningSpin({
       primaryWins: [makeWin(1)],
       finalGrid: FOUR_SCATTER_GRID,
     });
-
     const game = createGame();
     setBet(game, 10);
-
     const view = game.view as unknown as {
       showAfterMidnight: ReturnType<typeof vi.fn>;
     };
     view.showAfterMidnight.mockResolvedValueOnce(5);
-
     await runSpin(game);
-
     expect(view.showAfterMidnight).toHaveBeenCalledTimes(1);
     expect(getNextSpinMultiplier(game)).toBe(5);
   });
-
   it('uses a won multiplier on the following spin and only that spin', async () => {
     mockWinningSpin({
       primaryWins: [makeWin(2)],
@@ -407,45 +382,35 @@ describe('Game flow contract', () => {
       primaryWins: [makeWin(2)],
       finalGrid: NO_WIN_GRID,
     });
-
     const game = createGame();
     setBet(game, 10);
-
     const view = game.view as unknown as {
       showAfterMidnight: ReturnType<typeof vi.fn>;
     };
     view.showAfterMidnight.mockResolvedValueOnce(5);
-
     await runSpin(game);
     expect(getBalance(game)).toBe(110);
     expect(getNextSpinMultiplier(game)).toBe(5);
-
     await runSpin(game);
     expect(getBalance(game)).toBe(200);
     expect(getNextSpinMultiplier(game)).toBe(1);
-
     await runSpin(game);
     expect(getBalance(game)).toBe(210);
     expect(getNextSpinMultiplier(game)).toBe(1);
   });
-
   it('allows a multiplied spin to retrigger After Midnight for the next spin', async () => {
     mockWinningSpin({
       primaryWins: [makeWin(2)],
       finalGrid: THREE_SCATTER_GRID,
     });
-
     const game = createGame();
     setBet(game, 10);
     setNextSpinMultiplier(game, 5);
-
     const view = game.view as unknown as {
       showAfterMidnight: ReturnType<typeof vi.fn>;
     };
     view.showAfterMidnight.mockResolvedValueOnce(10);
-
     await runSpin(game);
-
     expect(getBalance(game)).toBe(190);
     expect(getNextSpinMultiplier(game)).toBe(10);
     expect(view.showAfterMidnight).toHaveBeenCalledTimes(1);

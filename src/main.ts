@@ -6,30 +6,23 @@ import {
   GAME_HEIGHT,
   GAME_WIDTH,
 } from './presentation/GameView';
-
 const shell = document.createElement('main');
 shell.className = 'presentation-shell';
-
 const leftPresentation = document.createElement('section');
 leftPresentation.className = 'presentation-side presentation-side--left';
 leftPresentation.setAttribute('aria-hidden', 'true');
-
 const gameHost = document.createElement('section');
 gameHost.className = 'game-host';
-
 const rightPresentation = document.createElement('aside');
 rightPresentation.className = 'presentation-side presentation-side--right';
 rightPresentation.dataset.mode = 'portfolio';
-
 const receiptHost = document.createElement('div');
-
 shell.append(
   leftPresentation,
   gameHost,
   rightPresentation,
 );
 document.body.appendChild(shell);
-
 const app = new Application();
 await app.init({
   width: Math.max(1, gameHost.clientWidth),
@@ -38,7 +31,6 @@ await app.init({
   antialias: true,
 });
 gameHost.appendChild(app.canvas);
-
 const game = new Game(app, receiptHost);
 const devModeController = new DevModeController({
   rightPresentation,
@@ -47,11 +39,14 @@ const devModeController = new DevModeController({
     game.setDevMode(enabled);
   },
   onTriggerAfterMidnight: () => game.armAfterMidnightTrigger(),
+  onReplayLastSpin: () => game.replayLastSpin(),
+});
+game.setLastSpinReplayAvailableHandler((available) => {
+  devModeController.setReplayAvailable(available);
 });
 game.setAfterMidnightDevTriggerConsumedHandler(() => {
   devModeController.markAfterMidnightConsumed();
 });
-
 function resizeGame(): void {
   const width = Math.max(1, gameHost.clientWidth);
   const height = Math.max(1, gameHost.clientHeight);
@@ -63,6 +58,5 @@ function resizeGame(): void {
   game.view.x = (width - GAME_WIDTH * scale) / 2;
   game.view.y = (height - GAME_HEIGHT * scale) / 2;
 }
-
 window.addEventListener('resize', resizeGame);
 resizeGame();

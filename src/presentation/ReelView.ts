@@ -33,7 +33,7 @@ interface TileVisual {
   readonly label: Text;
   readonly coordinate: Text;
 }
-const PAYLINE_COLORS = [
+const DEV_PAYLINE_COLORS = [
   0xff0000,
   0xff8000,
   0xffff00,
@@ -63,7 +63,6 @@ export class ReelView extends Container {
     this.createPlaceholderGrid();
   }
   displayResult(grid: ReelGrid): void {
-    console.log('[ReelView] displayResult called', grid);
     this.stopReelAnimation();
     this.gridLayer.removeChildren();
     this.createGrid(grid);
@@ -103,9 +102,7 @@ export class ReelView extends Container {
     ) {
       const spinner =
         this.reelSpinners[reelIndex];
-
       gsap.killTweensOf(spinner);
-
       this.revealReel(
         reelIndex,
         grid[reelIndex],
@@ -118,7 +115,6 @@ export class ReelView extends Container {
           onComplete: resolve,
         });
       });
-
       await new Promise<void>((resolve) => {
         gsap.to(spinner.scale, {
           x: 1.04,
@@ -294,26 +290,22 @@ export class ReelView extends Container {
     if (wins.length === 0) {
       return;
     }
-
     const allTiles: TileVisual[] = [];
     for (const tiles of this.reelTiles) {
       allTiles.push(...tiles);
     }
-
     // Keep the full win beat short even when several paylines hit. Each line
     // gets an immediate, readable symbol emphasis while the existing DEV
     // paylines remain visible and persistent.
     const beatDuration = Math.min(0.4, 1.2 / wins.length);
     const punchDuration = Math.min(0.14, beatDuration * 0.35);
     const holdDuration = Math.max(0.08, beatDuration - punchDuration * 2);
-
     for (const win of wins) {
       const activePositions = new Set(
         win.positions.map(
           (position) => `${position.reel},${position.row}`,
         ),
       );
-
       for (let reelIndex = 0; reelIndex < this.reelTiles.length; reelIndex++) {
         const tiles = this.reelTiles[reelIndex];
         for (let row = 0; row < tiles.length; row++) {
@@ -325,11 +317,9 @@ export class ReelView extends Container {
           tile.visual.scale.set(1);
         }
       }
-
       const activeTiles = win.positions
         .map((position) => this.reelTiles[position.reel]?.[position.row])
         .filter((tile): tile is TileVisual => tile !== undefined);
-
       await Promise.all(
         activeTiles.map(
           (tile) =>
@@ -344,11 +334,9 @@ export class ReelView extends Container {
             }),
         ),
       );
-
       await new Promise<void>((resolve) => {
         setTimeout(resolve, holdDuration * 1000);
       });
-
       await Promise.all(
         activeTiles.map(
           (tile) =>
@@ -364,14 +352,12 @@ export class ReelView extends Container {
         ),
       );
     }
-
     for (const tile of allTiles) {
       gsap.killTweensOf(tile.container);
       gsap.killTweensOf(tile.visual.scale);
       tile.container.alpha = 1;
       tile.visual.scale.set(1);
     }
-
     // Brief final read with all DEV paylines still visible before the cascade.
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 180);
@@ -389,7 +375,6 @@ export class ReelView extends Container {
       this.clearWinningPaylines();
     }
   }
-
   displayWinningPaylines(wins: WinResult[]): void {
     if (!this.devMode) {
       return;
@@ -426,7 +411,7 @@ export class ReelView extends Container {
       }
       line.stroke({
         width: 3,
-        color: PAYLINE_COLORS[paylineIndex],
+        color: DEV_PAYLINE_COLORS[paylineIndex],
         alpha: 0.8,
       });
       this.paylineLayer.addChild(line);
@@ -478,7 +463,6 @@ export class ReelView extends Container {
     this.createGrid(grid);
   }
   private createGrid(grid: ReelGrid): void {
-    console.log('[ReelView] createGrid called', grid);
     this.reelLayers.length = 0;
     this.reelSpinners.length = 0;
     this.reelTiles.length = 0;
@@ -539,7 +523,6 @@ export class ReelView extends Container {
     tileVisual.pivot.set(REEL_WIDTH / 2, REEL_HEIGHT / 2);
     tileVisual.position.set(REEL_WIDTH / 2, REEL_HEIGHT / 2);
     tileContainer.addChild(tileVisual);
-
     const cell = new Graphics()
       .roundRect(
         0,

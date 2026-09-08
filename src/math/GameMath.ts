@@ -163,22 +163,18 @@ function evaluatePayline(
     ({ reel, row }) => grid[reel][row],
   );
   const eligibleTargets: SymbolId[] = ['marge'];
-
   const firstNonWild = symbols.find(
     (symbol) => symbol !== 'marge',
   );
-
   if (
     firstNonWild &&
     firstNonWild !== 'scatter'
   ) {
     eligibleTargets.push(firstNonWild);
   }
-
   let bestWin: WinResult | null = null;
   let bestFailedTarget: SymbolId | null = null;
   let bestFailedCount = -1;
-
   for (const targetSymbol of eligibleTargets) {
     let count = 0;
     for (let reel = 0; reel < 5; reel++) {
@@ -192,7 +188,6 @@ function evaluatePayline(
       }
       count++;
     }
-
     if (count < 3) {
       if (count > bestFailedCount) {
         bestFailedTarget = targetSymbol;
@@ -200,7 +195,6 @@ function evaluatePayline(
       }
       continue;
     }
-
     const payoutCount = Math.min(count, 5) as 3 | 4 | 5;
     const payoutMultiplier =
       PAYTABLE[targetSymbol].payoutMultipliers[payoutCount];
@@ -211,7 +205,6 @@ function evaluatePayline(
       payline: paylineIndex + 1,
       positions: getWinningPositions(payline, payoutCount),
     };
-
     if (
       !bestWin ||
       candidate.payoutMultiplier > bestWin.payoutMultiplier ||
@@ -221,7 +214,6 @@ function evaluatePayline(
       bestWin = candidate;
     }
   }
-
   if (!bestWin) {
     const matchedCount = Math.max(bestFailedCount, 0);
     const blockingSymbol =
@@ -243,7 +235,6 @@ function evaluatePayline(
       },
     };
   }
-
   return {
     win: bestWin,
     trace: {

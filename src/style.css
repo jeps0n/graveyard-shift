@@ -51,12 +51,11 @@ canvas {
     visibility: hidden;
   }
 }
-
 .dev-console {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 176px;
+  grid-template-rows: minmax(0, 1fr) 190px;
   min-width: 0;
   min-height: 0;
   background: #0b0d10;
@@ -107,4 +106,36 @@ canvas {
 .dev-console__button:disabled {
   color: #777f89;
   cursor: not-allowed;
+}
+.dev-console__button-primary,
+.dev-console__button-secondary {
+  display: block;
+}
+.dev-console__button-primary {
+  font-size: 11px;
+}
+.dev-console__button-secondary {
+  margin-top: 3px;
+  color: #8f98a3;
+  font-size: 9px;
+  font-weight: 600;
+}
+.dev-console__status {
+  min-height: 27px;
+  color: #9ba4ae;
+  font: 600 9px/1.25 monospace;
+  text-align: center;
+}
+.dev-console__status[hidden] {
+  visibility: hidden;
+}
+.dev-console__status strong,
+.dev-console__status span {
+  display: block;
+}
+.dev-console__status strong {
+  margin-bottom: 2px;
+  color: #d8dde3;
+  font-size: 10px;
+  letter-spacing: 0.08em;
 }

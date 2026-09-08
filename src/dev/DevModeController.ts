@@ -3,11 +3,13 @@ interface DevModeControllerOptions {
   readonly receiptHost: HTMLElement;
   readonly onModeChange: (enabled: boolean) => void;
   readonly onTriggerAfterMidnight: () => boolean;
+  readonly onReplayLastSpin: () => Promise<boolean>;
 }
 
 export class DevModeController {
   private readonly devConsole: HTMLElement;
   private readonly triggerButton: HTMLButtonElement;
+  private readonly replayButton: HTMLButtonElement;
   private enabled = false;
   private dKeyHeld = false;
 
@@ -30,14 +32,25 @@ export class DevModeController {
     replayLabel.className = 'dev-console__label';
     replayLabel.textContent = 'LAST SPIN';
 
-    const replayButton = document.createElement('button');
-    replayButton.className = 'dev-console__button';
-    replayButton.type = 'button';
-    replayButton.disabled = true;
-    replayButton.textContent = '▶ REPLAY';
-    replayButton.title = 'Replay is added in Pass B';
+    this.replayButton = document.createElement('button');
+    this.replayButton.className = 'dev-console__button';
+    this.replayButton.type = 'button';
+    this.replayButton.disabled = true;
+    this.replayButton.textContent = '▶ REPLAY LAST SPIN';
+    this.replayButton.title = 'Replay the last completed spin';
 
-    replayGroup.append(replayLabel, replayButton);
+    this.replayButton.addEventListener('click', async () => {
+      this.replayButton.disabled = true;
+      this.replayButton.textContent = 'REPLAYING…';
+      try {
+        await options.onReplayLastSpin();
+      } finally {
+        this.replayButton.textContent = '▶ REPLAY LAST SPIN';
+        this.replayButton.disabled = false;
+      }
+    });
+
+    replayGroup.append(replayLabel, this.replayButton);
 
     const featureGroup = document.createElement('div');
     featureGroup.className = 'dev-console__group';
@@ -49,13 +62,13 @@ export class DevModeController {
     this.triggerButton = document.createElement('button');
     this.triggerButton.className = 'dev-console__button';
     this.triggerButton.type = 'button';
-    this.triggerButton.textContent = 'TRIGGER AFTER MIDNIGHT';
+    this.setTriggerButtonContent(false);
     this.triggerButton.addEventListener('click', () => {
       if (!options.onTriggerAfterMidnight()) {
         return;
       }
       this.triggerButton.disabled = true;
-      this.triggerButton.textContent = 'AFTER MIDNIGHT ARMED';
+      this.setTriggerButtonContent(true);
     });
 
     featureGroup.append(featureLabel, this.triggerButton);
@@ -88,9 +101,24 @@ export class DevModeController {
     this.setEnabled(false, rightPresentation, options.onModeChange);
   }
 
+  setReplayAvailable(available: boolean): void {
+    this.replayButton.disabled = !available;
+  }
+
   markAfterMidnightConsumed(): void {
     this.triggerButton.disabled = false;
-    this.triggerButton.textContent = 'TRIGGER AFTER MIDNIGHT';
+    this.setTriggerButtonContent(false);
+  }
+
+  private setTriggerButtonContent(armed: boolean): void {
+    this.triggerButton.replaceChildren();
+    const primary = document.createElement('span');
+    primary.className = 'dev-console__button-primary';
+    primary.textContent = armed ? 'AFTER MIDNIGHT ARMED' : 'TRIGGER AFTER MIDNIGHT';
+    const secondary = document.createElement('span');
+    secondary.className = 'dev-console__button-secondary';
+    secondary.textContent = 'on next live spin';
+    this.triggerButton.append(primary, secondary);
   }
 
   private setEnabled(

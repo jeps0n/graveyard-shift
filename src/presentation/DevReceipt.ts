@@ -52,7 +52,6 @@ export class DevReceipt {
   setVisible(visible: boolean): void {
     this.element.style.display = visible ? 'block' : 'none';
   }
-
   clear(): void {
     this.lines.length = 0;
     this.sequence = 0;
@@ -299,7 +298,6 @@ export class DevReceipt {
   private formatMoney(amount: number): string {
     return amount.toFixed(2);
   }
-
   private render(): void {
     this.element.value =
       this.lines.join('\n');

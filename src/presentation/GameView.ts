@@ -11,7 +11,6 @@ import type {
 import type { MidnightChoice } from '../features/AfterMidnight';
 import { AfterMidnightView } from './AfterMidnightView';
 import { ReelView } from './ReelView';
-
 export const GAME_WIDTH = 1000;
 export const GAME_HEIGHT = 800;
 // ─────────────────────────────────────────────
@@ -22,7 +21,10 @@ export const GAME_HEIGHT = 800;
 export class GameView extends Container {
   readonly spinButton: Graphics;
   private readonly spinText: Text;
+  private spinEnabledRequested = false;
+  private spinBusy = false;
   readonly betDownButton: Graphics;
+  readonly clearBetButton: Graphics;
   readonly betUpButton: Graphics;
   readonly maxBetButton: Graphics;
   readonly bet1Button: Graphics;
@@ -30,9 +32,13 @@ export class GameView extends Container {
   readonly bet25Button: Graphics;
   private readonly reelView: ReelView;
   private readonly afterMidnightView: AfterMidnightView;
+  private readonly balanceLabel: Text;
+  private readonly wagerLabel: Text;
+  private readonly winLabel: Text;
   private readonly balanceText: Text;
   private readonly betText: Text;
   private readonly winText: Text;
+  private readonly nextSpinMultiplierText: Text;
   // ─────────────────────────────────────────────
   // Constructor / Main Slot Layout
   // ─────────────────────────────────────────────
@@ -71,6 +77,19 @@ export class GameView extends Container {
     this.reelView.x = 180;
     this.reelView.y = 105;
     this.addChild(this.reelView);
+    this.nextSpinMultiplierText = new Text({
+      text: '',
+      style: {
+        fill: 0xd8dde3,
+        fontSize: 14,
+        fontWeight: 'bold',
+      },
+    });
+    this.nextSpinMultiplierText.anchor.set(0.5);
+    this.nextSpinMultiplierText.x = 500;
+    this.nextSpinMultiplierText.y = 42;
+    this.nextSpinMultiplierText.visible = false;
+    this.addChild(this.nextSpinMultiplierText);
     // Bonus presentation is isolated from the base-game view and is
     // brought to the front only when the feature is shown.
     this.afterMidnightView = new AfterMidnightView();
@@ -90,6 +109,7 @@ export class GameView extends Container {
     balanceLabel.x = 260;
     balanceLabel.y = 548;
     this.addChild(balanceLabel);
+    this.balanceLabel = balanceLabel;
     this.balanceText = new Text({
       text: '$100.00',
       style: {
@@ -114,6 +134,7 @@ export class GameView extends Container {
     wagerLabel.x = 500;
     wagerLabel.y = 548;
     this.addChild(wagerLabel);
+    this.wagerLabel = wagerLabel;
     this.betText = new Text({
       text: '$0.00',
       style: {
@@ -138,6 +159,7 @@ export class GameView extends Container {
     winLabel.x = 740;
     winLabel.y = 548;
     this.addChild(winLabel);
+    this.winLabel = winLabel;
     this.winText = new Text({
       text: '$0.00',
       style: {
@@ -186,30 +208,38 @@ export class GameView extends Container {
       60,
       34,
     );
+    this.clearBetButton = this.createBetButton(
+      'CLEAR',
+      348,
+      670,
+      96,
+      34,
+    );
     this.betDownButton = this.createBetButton(
       '−',
-      389,
+      452,
       670,
       44,
       34,
     );
     this.betUpButton = this.createBetButton(
       '+',
-      441,
+      504,
       670,
       44,
       34,
     );
     this.maxBetButton = this.createBetButton(
       'MAX BET',
-      493,
+      556,
       670,
-      112,
+      96,
       34,
     );
     this.addChild(this.bet1Button);
     this.addChild(this.bet5Button);
     this.addChild(this.bet25Button);
+    this.addChild(this.clearBetButton);
     this.addChild(this.betDownButton);
     this.addChild(this.betUpButton);
     this.addChild(this.maxBetButton);
@@ -226,7 +256,11 @@ export class GameView extends Container {
           42,
           12,
         )
-        .fill(0x8b1e2d);
+        .fill(0x8b1e2d)
+        .stroke({
+          color: 0x63dbe8,
+          width: 3,
+        });
     this.spinButton.eventMode = 'static';
     this.spinButton.cursor = 'pointer';
     this.addChild(this.spinButton);
@@ -256,7 +290,7 @@ export class GameView extends Container {
       text: label,
       style: {
         fill: 0xffffff,
-        fontSize: label === 'MAX BET' ? 13 : 20,
+        fontSize: label === 'MAX BET' || label === 'CLEAR' ? 13 : 20,
         fontWeight: 'bold',
       },
     });
@@ -383,18 +417,24 @@ export class GameView extends Container {
         : 'default';
     });
     const maxBet = Math.min(balance, 100);
+    const canClear = bet > 0;
     const canDecrease = bet > 0;
     const canIncrease = bet < maxBet;
     const canMaxBet = balance > 0 && bet < maxBet;
+    this.clearBetButton.alpha = canClear ? 1 : 0.12;
     this.betDownButton.alpha = canDecrease ? 1 : 0.12;
     this.betUpButton.alpha = canIncrease ? 1 : 0.12;
     this.maxBetButton.alpha = canMaxBet ? 1 : 0.12;
+    this.clearBetButton.eventMode =
+      canClear ? 'static' : 'none';
     this.betDownButton.eventMode =
       canDecrease ? 'static' : 'none';
     this.betUpButton.eventMode =
       canIncrease ? 'static' : 'none';
     this.maxBetButton.eventMode =
       canMaxBet ? 'static' : 'none';
+    this.clearBetButton.cursor =
+      canClear ? 'pointer' : 'default';
     this.betDownButton.cursor =
       canDecrease ? 'pointer' : 'default';
     this.betUpButton.cursor =
@@ -423,6 +463,51 @@ export class GameView extends Container {
         ease: 'power2.inOut',
       });
   }
+  // Brief financial feedback beats. These are presentation-only and never
+  // mutate authoritative balance/win state.
+  async animateBalanceDeductionBeat(): Promise<void> {
+    await this.animateMoneyBeat(this.balanceText, 0x63dbe8, 1.05);
+  }
+  async animateWinCreditBeat(): Promise<void> {
+    await this.animateMoneyBeat(this.winText, 0x62d98b, 1.07);
+  }
+  async animateBalanceCreditBeat(): Promise<void> {
+    await this.animateMoneyBeat(this.balanceText, 0x62d98b, 1.05);
+  }
+  async animatePayoutBeat(): Promise<void> {
+    await this.animateWinCreditBeat();
+    await this.animateBalanceCreditBeat();
+  }
+  private async animateMoneyBeat(
+    text: Text,
+    accentColor: number,
+    peakScale: number,
+  ): Promise<void> {
+    gsap.killTweensOf(text.scale);
+    text.scale.set(1);
+    text.style.fill = accentColor;
+    await new Promise<void>((resolve) => {
+      const timeline = gsap.timeline({
+        onComplete: () => {
+          text.style.fill = 0xffffff;
+          resolve();
+        },
+      });
+      timeline
+        .to(text.scale, {
+          x: peakScale,
+          y: peakScale,
+          duration: 0.08,
+          ease: 'power2.out',
+        }, 0)
+        .to(text.scale, {
+          x: 1,
+          y: 1,
+          duration: 0.12,
+          ease: 'power2.inOut',
+        });
+    });
+  }
   // ─────────────────────────────────────────────
   // Spin Control State
   // ─────────────────────────────────────────────
@@ -430,18 +515,30 @@ export class GameView extends Container {
   setSpinEnabled(
     enabled: boolean,
   ): void {
-    this.spinButton.eventMode =
-      enabled
-        ? 'static'
-        : 'none';
-    this.spinButton.cursor =
-      enabled
-        ? 'pointer'
-        : 'default';
-    this.spinButton.alpha =
-      enabled ? 1 : 0.12;
-    this.spinText.alpha =
-      enabled ? 1 : 0.12;
+    this.spinEnabledRequested = enabled;
+    this.applySpinControlState();
+  }
+  // Live spins use a distinct subdued busy state: non-interactive, but more
+  // visible than a genuinely disabled control such as a $0 wager.
+setSpinBusy(busy: boolean): void {
+  this.spinBusy = busy;
+  this.spinText.text = busy ? 'SPINNING…' : 'SPIN';
+  this.spinText.style.fontSize = busy ? 20 : 26;
+  this.applySpinControlState();
+}
+  private applySpinControlState(): void {
+    const interactive = this.spinEnabledRequested && !this.spinBusy;
+    this.spinButton.eventMode = interactive ? 'static' : 'none';
+    this.spinButton.cursor = interactive ? 'pointer' : 'default';
+    const alpha = this.spinBusy ? 0.48 : (this.spinEnabledRequested ? 1 : 0.12);
+    this.spinButton.alpha = alpha;
+    this.spinText.alpha = alpha;
+  }
+  setNextSpinMultiplier(multiplier: number): void {
+    this.nextSpinMultiplierText.visible = multiplier > 1;
+    this.nextSpinMultiplierText.text = multiplier > 1
+      ? `×${multiplier} ACTIVE · NEXT LIVE SPIN`
+      : '';
   }
   // ─────────────────────────────────────────────
   // AFTER MIDNIGHT Feature Delegation
@@ -493,7 +590,6 @@ export class GameView extends Container {
   setDevMode(enabled: boolean): void {
     this.reelView.setDevMode(enabled);
   }
-
   displayWinningPaylines(
     wins: WinResult[],
   ): void {
@@ -507,6 +603,20 @@ export class GameView extends Container {
   // ─────────────────────────────────────────────
   // HUD Updates
   // ─────────────────────────────────────────────
+  // Replay HUD values are historical presentation only. They never mutate
+  // the authoritative live balance, wager, or win state.
+  updateReplayHud(
+    balance: number,
+    bet: number,
+    win: number,
+  ): void {
+    this.balanceLabel.text = 'BALANCE (REPLAY)';
+    this.wagerLabel.text = 'WAGER (REPLAY)';
+    this.winLabel.text = 'WIN (REPLAY)';
+    this.balanceText.text = `$${balance.toFixed(2)}`;
+    this.betText.text = `$${bet.toFixed(2)}`;
+    this.winText.text = `$${win.toFixed(2)}`;
+  }
   // Updates all player-facing HUD values from the current game state.
   updateHud(
     balance: number,
@@ -514,6 +624,9 @@ export class GameView extends Container {
     win: number,
     activeIncrement: 1 | 5 | 25,
   ): void {
+    this.balanceLabel.text = 'BALANCE';
+    this.wagerLabel.text = 'WAGER';
+    this.winLabel.text = 'WIN';
     this.balanceText.text =
       `$${balance.toFixed(2)}`;
     this.betText.text =
