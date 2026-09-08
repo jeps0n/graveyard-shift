@@ -1,5 +1,4 @@
 import type {
-  GameResult,
   ReelGrid,
   SymbolId,
   WinPosition,
@@ -58,7 +57,7 @@ export interface PaylineEvaluationTrace {
   targetSymbol: SymbolId | null;
   matchedCount: number;
   result: 'WIN' | 'NO WIN';
-  payout: number;
+  payoutMultiplier: number;
   blockingSymbol: SymbolId | null;
   reason: string;
 }
@@ -184,7 +183,7 @@ function evaluatePayline(
             targetSymbol: null,
             matchedCount: 0,
             result: 'NO WIN',
-            payout: 0,
+            payoutMultiplier: 0,
             blockingSymbol:
               'scatter',
             reason:
@@ -225,7 +224,7 @@ function evaluatePayline(
         targetSymbol,
         matchedCount: count,
         result: 'NO WIN',
-        payout: 0,
+        payoutMultiplier: 0,
         blockingSymbol,
         reason:
           `Only ${count} matching position(s) before the sequence was blocked.`,
@@ -237,14 +236,14 @@ function evaluatePayline(
     | 3
     | 4
     | 5;
-  const amount =
-    PAYTABLE[targetSymbol].payouts[
+  const payoutMultiplier =
+    PAYTABLE[targetSymbol].payoutMultipliers[
     payoutCount
     ];
   const win: WinResult = {
     symbol: targetSymbol,
     count: payoutCount,
-    amount,
+    payoutMultiplier,
     payline:
       paylineIndex + 1,
     positions:
@@ -263,7 +262,7 @@ function evaluatePayline(
       targetSymbol,
       matchedCount: payoutCount,
       result: 'WIN',
-      payout: amount,
+      payoutMultiplier,
       blockingSymbol: null,
       reason:
         `Matched ${payoutCount} consecutive position(s).`,
@@ -430,18 +429,23 @@ function refillReels(
     draws,
   };
 }
-function calculateTotalWin(
+function calculateTotalPayoutMultiplier(
   wins: WinResult[],
 ): number {
   return wins.reduce(
     (total, win) =>
-      total + win.amount,
+      total + win.payoutMultiplier,
     0,
   );
 }
+export interface GridEvaluationResult {
+  grid: ReelGrid;
+  wins: WinResult[];
+  totalPayoutMultiplier: number;
+}
 export function evaluatePrimaryGrid(
   primary: GridGenerationTrace,
-): GameResult & {
+): GridEvaluationResult & {
   trace: SpinMathTrace;
 } {
   const evaluation =
@@ -449,8 +453,8 @@ export function evaluatePrimaryGrid(
   return {
     grid: primary.grid,
     wins: evaluation.wins,
-    totalWin:
-      calculateTotalWin(
+    totalPayoutMultiplier:
+      calculateTotalPayoutMultiplier(
         evaluation.wins,
       ),
     trace: {
@@ -464,12 +468,12 @@ export function evaluatePrimaryGrid(
 export interface CascadeStep {
   grid: ReelGrid;
   wins: WinResult[];
-  totalWin: number;
+  totalPayoutMultiplier: number;
 }
 export interface CascadeResult {
   steps: CascadeStep[];
   finalGrid: ReelGrid;
-  totalWin: number;
+  totalPayoutMultiplier: number;
   trace: CascadeResolutionTrace[];
 }
 export interface CascadeStepResult {
@@ -530,14 +534,14 @@ export function resolveCascades(
     ) {
       break;
     }
-    const totalWin =
-      calculateTotalWin(
+    const totalPayoutMultiplier =
+      calculateTotalPayoutMultiplier(
         evaluation.wins,
       );
     steps.push({
       grid: cloneGrid(grid),
       wins: evaluation.wins,
-      totalWin,
+      totalPayoutMultiplier,
     });
     const removedSymbols =
       evaluation.wins
@@ -598,10 +602,10 @@ export function resolveCascades(
   return {
     steps,
     finalGrid: grid,
-    totalWin:
+    totalPayoutMultiplier:
       steps.reduce(
         (total, step) =>
-          total + step.totalWin,
+          total + step.totalPayoutMultiplier,
         0,
       ),
     trace,

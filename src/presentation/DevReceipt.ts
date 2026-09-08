@@ -90,7 +90,7 @@ export class DevReceipt {
   spinStart(
     spinNumber: number,
     bet: number,
-    multiplier: number,
+    featureMultiplier: number,
     balance: number,
   ): void {
     this.event(
@@ -98,7 +98,7 @@ export class DevReceipt {
       [
         `NUMBER           #${spinNumber}`,
         `BET              $${bet.toFixed(2)}`,
-        `MULTIPLIER       ×${multiplier}`,
+        `FEATURE MULTIPLIER ×${featureMultiplier}`,
         `BALANCE BEFORE   $${balance.toFixed(2)}`,
       ],
     );
@@ -177,7 +177,7 @@ export class DevReceipt {
     ];
     if (evaluation.result === 'WIN') {
       details.push(
-        `PAYOUT     $${evaluation.payout.toFixed(2)}`,
+        `PAYOUT     $${evaluation.payoutMultiplier.toFixed(2)}`,
         `REASON     ${evaluation.reason}`,
       );
     }
@@ -206,7 +206,7 @@ export class DevReceipt {
           `LINE             ${win.payline}`,
           `SYMBOL           ${win.symbol.toUpperCase()}`,
           `COUNT            ${win.count}`,
-          `PAYOUT           $${win.amount.toFixed(2)}`,
+          `PAYOUT           $${win.payoutMultiplier.toFixed(2)}`,
           `PATH             ${this.formatPositions(win.positions)}`,
         ],
       );
@@ -248,18 +248,18 @@ export class DevReceipt {
     );
   }
   finalResult(
-    baseWin: number,
-    multiplier: number,
-    totalWin: number,
+    basePayoutMultiplier: number,
+    featureMultiplier: number,
+    totalWinAmount: number,
     // balanceBeforePayout: number,
     // balanceAfterPayout: number,
   ): void {
     this.event(
       'FINAL RESULT',
       [
-        `BASE WIN        $${baseWin.toFixed(2)}`,
-        `MULTIPLIER      ×${multiplier}`,
-        `TOTAL WIN       $${totalWin.toFixed(2)}`,
+        `BASE PAYOUT MULTIPLIER ${basePayoutMultiplier.toFixed(2)}×`,
+        `FEATURE MULTIPLIER ×${featureMultiplier}`,
+        `TOTAL WIN AMOUNT $${totalWinAmount.toFixed(2)}`,
         // `BALANCE BEFORE  $${balanceBeforePayout.toFixed(2)}`,
         // `BALANCE AFTER   $${balanceAfterPayout.toFixed(2)}`,
       ],
@@ -278,23 +278,23 @@ export class DevReceipt {
   }
   pick(
     choice: string,
-    multiplier: number,
+    featureMultiplier: number,
   ): void {
     this.event(
       'MYSTERY PICK',
       [
         `CHOICE           ${choice}`,
-        `REVEALED         ×${multiplier}`,
+        `REVEALED         ×${featureMultiplier}`,
       ],
     );
   }
   nextSpin(
-    multiplier: number,
+    featureMultiplier: number,
   ): void {
     this.event(
       'NEXT SPIN',
       [
-        `MULTIPLIER       ×${multiplier}`,
+        `FEATURE MULTIPLIER ×${featureMultiplier}`,
       ],
     );
   }

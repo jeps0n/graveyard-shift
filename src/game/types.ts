@@ -24,7 +24,7 @@ export interface WinPosition {
 export interface WinResult {
   symbol: SymbolId;
   count: 3 | 4 | 5;
-  amount: number;
+  payoutMultiplier: number;
   payline: number;
   positions: WinPosition[];
 }

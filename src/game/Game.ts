@@ -17,6 +17,7 @@ import type {
 const CASCADE_DELAY = 800;
 const SCATTER_TRIGGER_COUNT = 3;
 const FORCE_AFTER_MIDNIGHT = true;
+type BetIncrement = 1 | 5 | 25;
 const INITIAL_DISPLAYED_GRID: ReelGrid = [
   ['coffee', 'burger', 'gas'],
   ['chip', 'dice', 'zed'],
@@ -39,7 +40,8 @@ function delay(
 export class Game {
   readonly view: GameView;
   private balance = 100;
-  private readonly bet = 1;
+  private bet = 0;
+  private betIncrement: BetIncrement = 1;
   private nextSpinMultiplier = 1;
   private spinNumber = 0;
   private currentGrid: ReelGrid =
@@ -62,6 +64,42 @@ export class Game {
         void this.handleSpin();
       },
     );
+    this.view.betDownButton.on(
+      'pointertap',
+      () => {
+        this.decreaseBet();
+      },
+    );
+    this.view.betUpButton.on(
+      'pointertap',
+      () => {
+        this.increaseBet();
+      },
+    );
+    this.view.bet1Button.on(
+      'pointertap',
+      () => {
+        this.quickAddBet(1);
+      },
+    );
+    this.view.bet5Button.on(
+      'pointertap',
+      () => {
+        this.quickAddBet(5);
+      },
+    );
+    this.view.bet25Button.on(
+      'pointertap',
+      () => {
+        this.quickAddBet(25);
+      },
+    );
+    this.view.maxBetButton.on(
+      'pointertap',
+      () => {
+        this.setMaxBet();
+      },
+    );
     window.addEventListener(
       'keydown',
       (event) => {
@@ -74,11 +112,83 @@ export class Game {
     );
     this.updateHud();
   }
+  private decreaseBet(): void {
+    if (this.stateMachine.current !== 'IDLE') {
+      return;
+    }
+
+    this.bet = Math.max(
+      0,
+      this.bet - this.betIncrement,
+    );
+    this.updateHud();
+    this.view.animateWagerBeat();
+  }
+
+  private increaseBet(): void {
+    if (this.stateMachine.current !== 'IDLE') {
+      return;
+    }
+
+    const maxBet = Math.min(
+      this.balance,
+      100,
+    );
+    const nextBet = Math.min(
+      maxBet,
+      this.bet + this.betIncrement,
+    );
+
+    if (nextBet === this.bet) {
+      return;
+    }
+
+    this.bet = nextBet;
+    this.updateHud();
+    this.view.animateWagerBeat();
+  }
+
+  private quickAddBet(
+    increment: BetIncrement,
+  ): void {
+    if (this.stateMachine.current !== 'IDLE') {
+      return;
+    }
+
+    this.betIncrement = increment;
+
+    const maxBet = Math.min(
+      this.balance,
+      100,
+    );
+    this.bet = Math.min(
+      maxBet,
+      this.bet + increment,
+    );
+
+    this.updateHud();
+    this.view.animateWagerBeat();
+  }
+
+  private setMaxBet(): void {
+    if (this.stateMachine.current !== 'IDLE') {
+      return;
+    }
+    this.bet = Math.min(
+      this.balance,
+      100,
+    );
+    this.updateHud();
+    this.view.animateWagerBeat(1.09);
+  }
   private async handleSpin(): Promise<void> {
     if (
       this.stateMachine.current !==
       'IDLE'
     ) {
+      return;
+    }
+    if (this.bet <= 0) {
       return;
     }
     if (this.balance < this.bet) {
@@ -111,19 +221,19 @@ export class Game {
     );
     this.view.setSpinEnabled(false);
     this.spinNumber++;
-    const multiplier =
+    const featureMultiplier =
       this.nextSpinMultiplier;
     this.nextSpinMultiplier = 1;
     this.devReceipt.spinStart(
       this.spinNumber,
       this.bet,
-      multiplier,
+      featureMultiplier,
       balanceBeforeBet,
     );
     this.devReceipt.event(
       'MULTIPLIER CAPTURED',
       [
-        `APPLIED TO THIS SPIN ×${multiplier}`,
+        `APPLIED TO THIS SPIN ×${featureMultiplier}`,
         'STORED MULTIPLIER RESET TO ×1',
       ],
     );
@@ -160,12 +270,12 @@ export class Game {
     );
     await this.evaluateResult(
       initialResult,
-      multiplier,
+      featureMultiplier,
     );
   }
   private async evaluateResult(
     result: ReturnType<typeof evaluatePrimaryGrid>,
-    multiplier: number,
+    featureMultiplier: number,
   ): Promise<void> {
     if (result.wins.length === 0) {
       this.devReceipt.event(
@@ -177,18 +287,20 @@ export class Game {
       this.devReceipt.finalGrid(
         result.grid,
       );
-      const baseWin = 0;
-      const totalWin = 0;
+      const basePayoutMultiplier = 0;
+      const totalWinAmount = 0;
       this.devReceipt.finalResult(
-        baseWin,
-        multiplier,
-        totalWin,
+        basePayoutMultiplier,
+        featureMultiplier,
+        totalWinAmount,
         // this.balance,
         // this.balance,
       );
-      this.finishSpin(
-        result,
-      );
+      this.finishSpin({
+        grid: result.grid,
+        wins: result.wins,
+        totalWin: totalWinAmount,
+      });
       const scatterCount =
         this.countScatters(
           result.grid,
@@ -202,7 +314,7 @@ export class Game {
           scatterCount,
         );
       }
-      this.view.setSpinEnabled(true);
+      this.updateHud();
       return;
     }
     this.stateMachine.transition(
@@ -275,16 +387,16 @@ export class Game {
         ]);
       }
     }
-    const baseWin = cumulativeWins.reduce(
-      (total, win) => total + win.amount,
+    const basePayoutMultiplier = cumulativeWins.reduce(
+      (total, win) => total + win.payoutMultiplier,
       0,
     );
-    const totalWin =
-      baseWin * multiplier;
+    const totalWinAmount =
+      basePayoutMultiplier * this.bet * featureMultiplier;
     const finalResult: GameResult = {
       grid: cascadeGrid,
       wins: cumulativeWins,
-      totalWin,
+      totalWin: totalWinAmount,
     };
     this.currentGrid =
       cloneGrid(
@@ -294,9 +406,9 @@ export class Game {
       finalResult.grid,
     );
     this.devReceipt.finalResult(
-      baseWin,
-      multiplier,
-      totalWin,
+      basePayoutMultiplier,
+      featureMultiplier,
+      totalWinAmount,
       // this.balance,
       // this.balance + totalWin,
     );
@@ -316,7 +428,7 @@ export class Game {
         scatterCount,
       );
     }
-    this.view.setSpinEnabled(true);
+    this.updateHud();
   }
   private async triggerAfterMidnight(
     scatterCount: number,
@@ -326,7 +438,7 @@ export class Game {
     );
     this.afterMidnight =
       new AfterMidnight();
-    const multiplier =
+    const featureMultiplier =
       await this.view.showAfterMidnight(
         (choice) => {
           const result =
@@ -341,9 +453,9 @@ export class Game {
         },
       );
     this.nextSpinMultiplier =
-      multiplier;
+      featureMultiplier;
     this.devReceipt.nextSpin(
-      multiplier,
+      featureMultiplier,
     );
   }
   private countScatters(
@@ -364,6 +476,11 @@ export class Game {
       this.balance;
     this.balance +=
       result.totalWin;
+    this.bet = Math.min(
+      this.bet,
+      this.balance,
+      100,
+    );
     this.devReceipt.event(
       'BALANCE UPDATED',
       [
@@ -382,6 +499,7 @@ export class Game {
       this.balance,
       this.bet,
       result.totalWin,
+      this.betIncrement,
     );
     this.stateMachine.transition(
       'IDLE',
@@ -398,6 +516,7 @@ export class Game {
       this.balance,
       this.bet,
       0,
+      this.betIncrement,
     );
   }
   private formatGridLines(
