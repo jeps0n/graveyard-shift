@@ -99,6 +99,36 @@ describe('GameMath contract - Marge best-pay Wild', () => {
   });
 });
 
+describe('GameMath contract - diagnostic traces', () => {
+  it('reports the strongest failed Victor interpretation for a leading Marge', () => {
+    const grid = gridWithTopRow(['marge', 'victor', 'gas', 'dice', 'zed']);
+    const result = evaluatePrimaryGrid({ grid, draws: [] });
+    const trace = result.trace.primaryEvaluations.find(({ payline }) => payline === 1);
+
+    expect(trace).toMatchObject({
+      targetSymbol: 'victor',
+      matchedCount: 2,
+      result: 'NO WIN',
+      payoutMultiplier: 0,
+      blockingSymbol: 'gas',
+    });
+  });
+
+  it('reports the strongest failed Gas interpretation for a leading Marge', () => {
+    const grid = gridWithTopRow(['marge', 'gas', 'burger', 'dice', 'zed']);
+    const result = evaluatePrimaryGrid({ grid, draws: [] });
+    const trace = result.trace.primaryEvaluations.find(({ payline }) => payline === 1);
+
+    expect(trace).toMatchObject({
+      targetSymbol: 'gas',
+      matchedCount: 2,
+      result: 'NO WIN',
+      payoutMultiplier: 0,
+      blockingSymbol: 'burger',
+    });
+  });
+});
+
 describe('GameMath contract - Scatter and cascades', () => {
   it('never treats Scatter as a payline win', () => {
     const win = paylineWin(gridWithTopRow(['scatter', 'scatter', 'scatter', 'scatter', 'scatter']), 1);

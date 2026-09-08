@@ -83,7 +83,7 @@ export class DevReceipt {
       'SPIN START',
       [
         `NUMBER           #${spinNumber}`,
-        `BET              $${bet.toFixed(2)}`,
+        `BET              $${this.formatMoney(bet)}`,
         `FEATURE MULTIPLIER ×${featureMultiplier}`,
         `BALANCE BEFORE   $${balance.toFixed(2)}`,
       ],
@@ -163,10 +163,12 @@ export class DevReceipt {
     ];
     if (evaluation.result === 'WIN') {
       details.push(
-        `PAYOUT     $${evaluation.payoutMultiplier.toFixed(2)}`,
-        `REASON     ${evaluation.reason}`,
+        `PAYTABLE MULTIPLIER ×${evaluation.payoutMultiplier.toFixed(2)}`,
       );
     }
+    details.push(
+      `REASON     ${evaluation.reason}`,
+    );
     if (evaluation.blockingSymbol) {
       details.push(
         `BLOCKED BY ${evaluation.blockingSymbol.toUpperCase()}`,
@@ -179,6 +181,7 @@ export class DevReceipt {
   }
   winResult(
     wins: WinResult[],
+    bet: number,
   ): void {
     for (
       let index = 0;
@@ -192,7 +195,9 @@ export class DevReceipt {
           `LINE             ${win.payline}`,
           `SYMBOL           ${win.symbol.toUpperCase()}`,
           `COUNT            ${win.count}`,
-          `PAYOUT           $${win.payoutMultiplier.toFixed(2)}`,
+          `PAYTABLE MULTIPLIER ×${win.payoutMultiplier.toFixed(2)}`,
+          `BET              $${this.formatMoney(bet)}`,
+          `BASE LINE WIN    $${this.formatMoney(win.payoutMultiplier * bet)}`,
           `PATH             ${this.formatPositions(win.positions)}`,
         ],
       );
@@ -235,6 +240,7 @@ export class DevReceipt {
   }
   finalResult(
     basePayoutMultiplier: number,
+    bet: number,
     featureMultiplier: number,
     totalWinAmount: number,
     // balanceBeforePayout: number,
@@ -244,8 +250,10 @@ export class DevReceipt {
       'FINAL RESULT',
       [
         `BASE PAYOUT MULTIPLIER ${basePayoutMultiplier.toFixed(2)}×`,
-        `FEATURE MULTIPLIER ×${featureMultiplier}`,
-        `TOTAL WIN AMOUNT $${totalWinAmount.toFixed(2)}`,
+        `BET                    $${this.formatMoney(bet)}`,
+        `BASE WIN               $${this.formatMoney(basePayoutMultiplier * bet)}`,
+        `FEATURE MULTIPLIER     ×${featureMultiplier}`,
+        `TOTAL WIN              $${this.formatMoney(totalWinAmount)}`,
         // `BALANCE BEFORE  $${balanceBeforePayout.toFixed(2)}`,
         // `BALANCE AFTER   $${balanceAfterPayout.toFixed(2)}`,
       ],
@@ -284,6 +292,10 @@ export class DevReceipt {
       ],
     );
   }
+  private formatMoney(amount: number): string {
+    return amount.toFixed(2);
+  }
+
   private render(): void {
     this.element.value =
       this.lines.join('\n');

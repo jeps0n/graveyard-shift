@@ -28,6 +28,7 @@ const SYMBOL_LABELS: Record<SymbolId, string> = {
 };
 interface TileVisual {
   readonly container: Container;
+  readonly visual: Container;
   readonly cell: Graphics;
   readonly label: Text;
   readonly coordinate: Text;
@@ -101,9 +102,13 @@ export class ReelView extends Container {
     ) {
       const spinner =
         this.reelSpinners[reelIndex];
-      // Take only this reel out of the active spin.
-      // Other reels continue moving until their own stop.
+
       gsap.killTweensOf(spinner);
+
+      this.revealReel(
+        reelIndex,
+        grid[reelIndex],
+      );
       await new Promise<void>((resolve) => {
         gsap.to(spinner, {
           y: 0,
@@ -112,12 +117,7 @@ export class ReelView extends Container {
           onComplete: resolve,
         });
       });
-      // The stopped reel gets its new data immediately.
-      // The remaining reels still show their old data.
-      this.revealReel(
-        reelIndex,
-        grid[reelIndex],
-      );
+
       await new Promise<void>((resolve) => {
         gsap.to(spinner.scale, {
           x: 1.04,
@@ -290,34 +290,91 @@ export class ReelView extends Container {
   async animateWinningSymbols(
     wins: WinResult[],
   ): Promise<void> {
-    const winningPositions = new Set<string>();
-    for (const win of wins) {
-      for (const position of win.positions) {
-        winningPositions.add(
-          `${position.reel},${position.row}`,
-        );
-      }
+    if (wins.length === 0) {
+      return;
     }
-    const animations: Promise<void>[] = [];
-    for (const key of winningPositions) {
-      const cell = this.winningCells.get(key);
-      if (!cell) {
-        continue;
+
+    const allTiles: TileVisual[] = [];
+    for (const tiles of this.reelTiles) {
+      allTiles.push(...tiles);
+    }
+
+    // Keep the full win beat short even when several paylines hit. Each line
+    // gets an immediate, readable symbol emphasis while the existing DEV
+    // paylines remain visible and persistent.
+    const beatDuration = Math.min(0.4, 1.2 / wins.length);
+    const punchDuration = Math.min(0.14, beatDuration * 0.35);
+    const holdDuration = Math.max(0.08, beatDuration - punchDuration * 2);
+
+    for (const win of wins) {
+      const activePositions = new Set(
+        win.positions.map(
+          (position) => `${position.reel},${position.row}`,
+        ),
+      );
+
+      for (let reelIndex = 0; reelIndex < this.reelTiles.length; reelIndex++) {
+        const tiles = this.reelTiles[reelIndex];
+        for (let row = 0; row < tiles.length; row++) {
+          const tile = tiles[row];
+          const isActive = activePositions.has(`${reelIndex},${row}`);
+          gsap.killTweensOf(tile.container);
+          gsap.killTweensOf(tile.visual.scale);
+          tile.container.alpha = isActive ? 1 : 0.55;
+          tile.visual.scale.set(1);
+        }
       }
-      animations.push(
-        new Promise<void>((resolve) => {
-          gsap.to(cell, {
-            alpha: 0.25,
-            duration: 0.16,
-            yoyo: true,
-            repeat: 3,
-            ease: 'power1.inOut',
-            onComplete: resolve,
-          });
-        }),
+
+      const activeTiles = win.positions
+        .map((position) => this.reelTiles[position.reel]?.[position.row])
+        .filter((tile): tile is TileVisual => tile !== undefined);
+
+      await Promise.all(
+        activeTiles.map(
+          (tile) =>
+            new Promise<void>((resolve) => {
+              gsap.to(tile.visual.scale, {
+                x: 1.1,
+                y: 1.1,
+                duration: punchDuration,
+                ease: 'power2.out',
+                onComplete: resolve,
+              });
+            }),
+        ),
+      );
+
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, holdDuration * 1000);
+      });
+
+      await Promise.all(
+        activeTiles.map(
+          (tile) =>
+            new Promise<void>((resolve) => {
+              gsap.to(tile.visual.scale, {
+                x: 1,
+                y: 1,
+                duration: punchDuration,
+                ease: 'power2.inOut',
+                onComplete: resolve,
+              });
+            }),
+        ),
       );
     }
-    await Promise.all(animations);
+
+    for (const tile of allTiles) {
+      gsap.killTweensOf(tile.container);
+      gsap.killTweensOf(tile.visual.scale);
+      tile.container.alpha = 1;
+      tile.visual.scale.set(1);
+    }
+
+    // Brief final read with all DEV paylines still visible before the cascade.
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 180);
+    });
   }
   displayWinningPaylines(wins: WinResult[]): void {
     this.paylineLayer.removeChildren();
@@ -461,6 +518,11 @@ export class ReelView extends Container {
     tileContainer.x = 0;
     tileContainer.y =
       row * (REEL_HEIGHT + GAP);
+    const tileVisual = new Container();
+    tileVisual.pivot.set(REEL_WIDTH / 2, REEL_HEIGHT / 2);
+    tileVisual.position.set(REEL_WIDTH / 2, REEL_HEIGHT / 2);
+    tileContainer.addChild(tileVisual);
+
     const cell = new Graphics()
       .roundRect(
         0,
@@ -474,7 +536,7 @@ export class ReelView extends Container {
         width: 2,
         color: 0x555d68,
       });
-    tileContainer.addChild(cell);
+    tileVisual.addChild(cell);
     const label = new Text({
       text: SYMBOL_LABELS[symbol],
       style: {
@@ -487,7 +549,7 @@ export class ReelView extends Container {
     label.anchor.set(0.5);
     label.x = REEL_WIDTH / 2;
     label.y = REEL_HEIGHT / 2;
-    tileContainer.addChild(label);
+    tileVisual.addChild(label);
     const coordinate = new Text({
       text: `(${reel + 1},${row + 1})`,
       style: {
@@ -497,9 +559,10 @@ export class ReelView extends Container {
     });
     coordinate.x = 8;
     coordinate.y = 8;
-    tileContainer.addChild(coordinate);
+    tileVisual.addChild(coordinate);
     return {
       container: tileContainer,
+      visual: tileVisual,
       cell,
       label,
       coordinate,

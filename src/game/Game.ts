@@ -188,6 +188,9 @@ export class Game {
       return;
     }
     this.devReceipt.clear();
+    const preSpinGrid = cloneGrid(
+      this.currentGrid,
+    );
     const balanceBeforeBet =
       this.balance;
     this.devReceipt.event(
@@ -203,7 +206,20 @@ export class Game {
     );
     console.log('[Game] starting reel animation');
     await this.view.animateSpin();
+
     const primary = generatePrimaryGrid();
+    // LEAVE THIS COMMENT
+    // generatePrimaryGrid();
+    // const primary = {
+    //   grid: [
+    //     ['barkley', 'marge', 'coffee'],
+    //     ['gas', 'barkley', 'victor'],
+    //     ['burger', 'barkley', 'gas'],
+    //     ['burger', 'chip', 'dice'],
+    //     ['zed', 'zed', 'dice'],
+    //   ] as ReelGrid,
+    //   draws: [],
+    // };
     this.currentGrid = cloneGrid(primary.grid);
     await this.view.animateReelStops(primary.grid);
     this.devReceipt.event(
@@ -241,7 +257,7 @@ export class Game {
     this.devReceipt.event(
       'PRE-SPIN GRID',
       this.formatGridLines(
-        this.currentGrid,
+        preSpinGrid,
       ),
     );
     console.log('[Game] using generated primary grid');
@@ -250,6 +266,12 @@ export class Game {
     );
     this.stateMachine.transition(
       'EVALUATING',
+    );
+    this.devReceipt.event(
+      'STATE TRANSITION',
+      [
+        'SPINNING → EVALUATING',
+      ],
     );
     const initialResult =
       evaluatePrimaryGrid(
@@ -260,6 +282,7 @@ export class Game {
     );
     this.devReceipt.winResult(
       initialResult.wins,
+      this.bet,
     );
     await this.evaluateResult(
       initialResult,
@@ -284,6 +307,7 @@ export class Game {
       const totalWinAmount = 0;
       this.devReceipt.finalResult(
         basePayoutMultiplier,
+        this.bet,
         featureMultiplier,
         totalWinAmount,
         // this.balance,
@@ -307,7 +331,6 @@ export class Game {
           scatterCount,
         );
       }
-      this.updateHud();
       return;
     }
     this.stateMachine.transition(
@@ -331,9 +354,6 @@ export class Game {
       [
         `WIN LINES        ${result.wins.length}`,
       ],
-    );
-    await delay(
-      CASCADE_DELAY,
     );
     this.stateMachine.transition(
       'CASCADING',
@@ -370,10 +390,12 @@ export class Game {
       ]);
       const evaluation = evaluateWins(cascadeGrid);
       this.devReceipt.evaluation(evaluation.evaluations);
-      this.devReceipt.winResult(evaluation.wins);
+      this.devReceipt.winResult(evaluation.wins, this.bet);
       cascadeWins = evaluation.wins;
       if (cascadeWins.length > 0) {
         cumulativeWins.push(...cascadeWins);
+        this.view.displayWinningPaylines(cumulativeWins);
+        await this.view.animateWinningSymbols(cascadeWins);
         this.stateMachine.transition('CASCADING');
         this.devReceipt.event('STATE TRANSITION', [
           'EVALUATING → CASCADING',
@@ -400,6 +422,7 @@ export class Game {
     );
     this.devReceipt.finalResult(
       basePayoutMultiplier,
+      this.bet,
       featureMultiplier,
       totalWinAmount,
       // this.balance,
@@ -425,7 +448,6 @@ export class Game {
         scatterCount,
       );
     }
-    this.updateHud();
   }
   private async triggerAfterMidnight(
     scatterCount: number,

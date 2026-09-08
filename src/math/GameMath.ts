@@ -176,6 +176,8 @@ function evaluatePayline(
   }
 
   let bestWin: WinResult | null = null;
+  let bestFailedTarget: SymbolId | null = null;
+  let bestFailedCount = -1;
 
   for (const targetSymbol of eligibleTargets) {
     let count = 0;
@@ -192,6 +194,10 @@ function evaluatePayline(
     }
 
     if (count < 3) {
+      if (count > bestFailedCount) {
+        bestFailedTarget = targetSymbol;
+        bestFailedCount = count;
+      }
       continue;
     }
 
@@ -217,26 +223,23 @@ function evaluatePayline(
   }
 
   if (!bestWin) {
-    const firstBlockingIndex = symbols.findIndex(
-      (symbol, index) =>
-        index === 0 ||
-        (symbol !== 'marge' && symbol !== symbols[0]),
-    );
-    const blockingSymbol = symbols.find(
-      (symbol) => symbol === 'scatter',
-    ) ?? (firstBlockingIndex >= 0 ? symbols[firstBlockingIndex] : null);
+    const matchedCount = Math.max(bestFailedCount, 0);
+    const blockingSymbol =
+      matchedCount < symbols.length
+        ? symbols[matchedCount]
+        : null;
     return {
       win: null,
       trace: {
         payline: paylineIndex + 1,
         path,
         symbols,
-        targetSymbol: null,
-        matchedCount: 0,
+        targetSymbol: bestFailedTarget,
+        matchedCount,
         result: 'NO WIN',
         payoutMultiplier: 0,
         blockingSymbol,
-        reason: 'No eligible best-pay combination reached three consecutive positions.',
+        reason: 'Best valid interpretation did not reach three consecutive positions.',
       },
     };
   }
