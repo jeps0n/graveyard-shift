@@ -38,8 +38,10 @@ const devModeController = new DevModeController({
   onModeChange: (enabled) => {
     game.setDevMode(enabled);
   },
-  onTriggerAfterMidnight: () => game.armAfterMidnightTrigger(),
+  onSetAfterMidnightArmed: (armed) => game.setAfterMidnightTriggerArmed(armed),
   onReplayLastSpin: () => game.replayLastSpin(),
+  onCoordinatesVisibleChange: (visible) => game.setDevCoordinatesVisible(visible),
+  onPaylinesVisibleChange: (visible) => game.setDevPaylinesVisible(visible),
 });
 game.setLastSpinReplayAvailableHandler((available) => {
   devModeController.setReplayAvailable(available);

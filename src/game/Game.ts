@@ -10,7 +10,7 @@ import {
   generatePrimaryGrid,
   resolveCascadeStep,
 } from '../math/GameMath';
-import { DevReceipt } from '../presentation/DevReceipt';
+import { DevReceipt } from '../dev/DevReceipt';
 import { GameView } from '../presentation/GameView';
 import { GameStateMachine } from './GameStateMachine';
 import type {
@@ -210,12 +210,18 @@ export class Game {
     this.devReceipt.setVisible(enabled);
     this.view.setDevMode(enabled);
   }
-  armAfterMidnightTrigger(): boolean {
-    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress || this.forceAfterMidnightNextSpin) {
+  setAfterMidnightTriggerArmed(armed: boolean): boolean {
+    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
       return false;
     }
-    this.forceAfterMidnightNextSpin = true;
+    this.forceAfterMidnightNextSpin = armed;
     return true;
+  }
+  setDevCoordinatesVisible(visible: boolean): void {
+    this.view.setDevCoordinatesVisible(visible);
+  }
+  setDevPaylinesVisible(visible: boolean): void {
+    this.view.setDevPaylinesVisible(visible);
   }
   setAfterMidnightDevTriggerConsumedHandler(handler: () => void): void {
     this.onAfterMidnightDevTriggerConsumed = handler;
@@ -274,7 +280,10 @@ export class Game {
       0,
       this.betIncrement,
     );
-    await this.view.animateBalanceDeductionBeat();
+    await this.view.animateBalanceDeductionBeat(
+      balanceBeforeBet,
+      this.balance,
+    );
     this.devReceipt.event(
       'BET DEDUCTED',
       [
@@ -637,7 +646,11 @@ export class Game {
       this.betIncrement,
     );
     if (result.totalWin > 0) {
-      await this.view.animatePayoutBeat();
+      await this.view.animatePayoutBeat(
+        balanceBeforePayout,
+        this.balance,
+        result.totalWin,
+      );
     }
     this.stateMachine.transition(
       'IDLE',

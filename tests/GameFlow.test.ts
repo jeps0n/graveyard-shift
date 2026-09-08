@@ -45,7 +45,7 @@ vi.mock('../src/presentation/GameView', () => {
     },
   };
 });
-vi.mock('../src/presentation/DevReceipt', () => {
+vi.mock('../src/dev/DevReceipt', () => {
   return {
     DevReceipt: class {
       blur = vi.fn();

@@ -465,8 +465,48 @@ export class GameView extends Container {
   }
   // Brief financial feedback beats. These are presentation-only and never
   // mutate authoritative balance/win state.
-  async animateBalanceDeductionBeat(): Promise<void> {
-    await this.animateMoneyBeat(this.balanceText, 0x63dbe8, 1.05);
+  async animateBalanceDeductionBeat(
+    balanceBeforeBet: number,
+    balanceAfterBet: number,
+  ): Promise<void> {
+    gsap.killTweensOf(this.balanceText.scale);
+    this.balanceText.scale.set(1);
+    this.balanceText.style.fill = 0x63dbe8;
+    this.balanceText.text = `$${balanceBeforeBet.toFixed(2)}`;
+
+    const displayedBalance = { value: balanceBeforeBet };
+
+    await new Promise<void>((resolve) => {
+      const timeline = gsap.timeline({
+        onComplete: () => {
+          this.balanceText.text = `$${balanceAfterBet.toFixed(2)}`;
+          this.balanceText.style.fill = 0xffffff;
+          resolve();
+        },
+      });
+
+      timeline
+        .to(displayedBalance, {
+          value: balanceAfterBet,
+          duration: 0.2,
+          ease: 'none',
+          onUpdate: () => {
+            this.balanceText.text = `$${displayedBalance.value.toFixed(2)}`;
+          },
+        }, 0)
+        .to(this.balanceText.scale, {
+          x: 1.05,
+          y: 1.05,
+          duration: 0.08,
+          ease: 'power2.out',
+        }, 0)
+        .to(this.balanceText.scale, {
+          x: 1,
+          y: 1,
+          duration: 0.12,
+          ease: 'power2.inOut',
+        });
+    });
   }
   async animateWinCreditBeat(): Promise<void> {
     await this.animateMoneyBeat(this.winText, 0x62d98b, 1.07);
@@ -474,19 +514,30 @@ export class GameView extends Container {
   async animateBalanceCreditBeat(): Promise<void> {
     await this.animateMoneyBeat(this.balanceText, 0x62d98b, 1.05);
   }
-  async animatePayoutBeat(): Promise<void> {
+  async animatePayoutBeat(
+    balanceBeforePayout: number,
+    finalBalance: number,
+    totalWin: number,
+  ): Promise<void> {
     gsap.killTweensOf(this.winText.scale);
     gsap.killTweensOf(this.balanceText.scale);
 
     this.winText.scale.set(1);
     this.balanceText.scale.set(1);
 
+    this.winText.text = '$0.00';
+    this.balanceText.text = `$${balanceBeforePayout.toFixed(2)}`;
     this.winText.style.fill = 0x62d98b;
     this.balanceText.style.fill = 0xffffff;
+
+    const displayedWin = { value: 0 };
+    const displayedBalance = { value: balanceBeforePayout };
 
     await new Promise<void>((resolve) => {
       const timeline = gsap.timeline({
         onComplete: () => {
+          this.winText.text = `$${totalWin.toFixed(2)}`;
+          this.balanceText.text = `$${finalBalance.toFixed(2)}`;
           this.winText.style.fill = 0xffffff;
           this.balanceText.style.fill = 0xffffff;
           resolve();
@@ -494,6 +545,14 @@ export class GameView extends Container {
       });
 
       timeline
+        .to(displayedWin, {
+          value: totalWin,
+          duration: 0.2,
+          ease: 'none',
+          onUpdate: () => {
+            this.winText.text = `$${displayedWin.value.toFixed(2)}`;
+          },
+        }, 0)
         .to(this.winText.scale, {
           x: 1.07,
           y: 1.07,
@@ -510,12 +569,20 @@ export class GameView extends Container {
             this.balanceText.style.fill = 0x62d98b;
           },
         })
+        .to(displayedBalance, {
+          value: finalBalance,
+          duration: 0.2,
+          ease: 'none',
+          onUpdate: () => {
+            this.balanceText.text = `$${displayedBalance.value.toFixed(2)}`;
+          },
+        })
         .to(this.balanceText.scale, {
           x: 1.05,
           y: 1.05,
           duration: 0.08,
           ease: 'power2.out',
-        })
+        }, '<')
         .to(this.balanceText.scale, {
           x: 1,
           y: 1,
@@ -636,6 +703,12 @@ setSpinBusy(busy: boolean): void {
   }
   setDevMode(enabled: boolean): void {
     this.reelView.setDevMode(enabled);
+  }
+  setDevCoordinatesVisible(visible: boolean): void {
+    this.reelView.setCoordinatesVisible(visible);
+  }
+  setDevPaylinesVisible(visible: boolean): void {
+    this.reelView.setPaylinesVisible(visible);
   }
   displayWinningPaylines(
     wins: WinResult[],

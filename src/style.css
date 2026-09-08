@@ -11,12 +11,44 @@ body {
 }
 .presentation-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1000px) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(0, 23.958333%)
+    minmax(0, 52.083334%)
+    minmax(0, 23.958333%);
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #0b0d10;
+  position: relative;
+  background-color: #0b0d10;
+  background-image:
+    linear-gradient(rgba(99, 219, 232, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 219, 232, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(99, 219, 232, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 219, 232, 0.025) 1px, transparent 1px);
+  background-size:
+    100px 100px,
+    100px 100px,
+    50px 50px,
+    50px 50px;
+  background-position: 0 0;
 }
+
+.presentation-shell::after {
+  content: '100 px  ·  50 px minor';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 0;
+  padding: 3px 5px;
+  border: 1px solid rgba(99, 219, 232, 0.12);
+  background: rgba(11, 13, 16, 0.72);
+  color: rgba(99, 219, 232, 0.34);
+  font: 9px/1 monospace;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  user-select: none;
+}
+
 .presentation-side {
   position: relative;
   min-width: 0;
@@ -25,28 +57,29 @@ body {
 }
 .presentation-side--left {
   /* Reserved for final GRAVEYARD SHIFT branding / atmosphere. */
-  background: #0b0d10;
+  background: transparent;
 }
 .presentation-side--right {
   /* DEV: Dev Receipt owns this region. PORTFOLIO: final artwork owns it. */
-  background: #0b0d10;
+  background: transparent;
 }
 .game-host {
   position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #0b0d10;
+  background: transparent;
 }
 canvas {
   display: block;
 }
-/* On constrained screens, decorative presentation regions disappear and
-   gameplay gets the full viewport width. */
-@media (max-width: 1360px) {
+/* Preserve the full three-region composition while it remains useful.
+   On genuinely small screens, decorative side regions yield to gameplay. */
+@media (max-width: 900px) {
   .presentation-shell {
     grid-template-columns: 0 minmax(0, 1fr) 0;
   }
+
   .presentation-side {
     visibility: hidden;
   }
@@ -55,10 +88,11 @@ canvas {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 190px;
+  grid-template-rows: minmax(0, 1fr) 250px;
   min-width: 0;
   min-height: 0;
   background: #0b0d10;
+  user-select: none;
 }
 .dev-console[hidden] {
   display: none;
@@ -72,6 +106,7 @@ canvas {
 .dev-console__controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding: 14px;
   border: 2px solid #444b55;
@@ -79,63 +114,68 @@ canvas {
   background: #15191f;
 }
 .dev-console__group {
-  display: flex;
+  display: grid;
+  grid-template-rows: 14px 40px 12px;
   min-width: 0;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  align-content: center;
+  gap: 6px;
+}
+.dev-console__label,
+.dev-console__scope {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+  text-align: center;
 }
 .dev-console__label {
   color: #8f98a3;
-  font: 700 11px/1 monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
   letter-spacing: 0.12em;
-  text-align: center;
+}
+.dev-console__scope {
+  color: #737c87;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 12px;
+  letter-spacing: 0.04em;
 }
 .dev-console__button {
   width: 100%;
-  min-height: 40px;
-  padding: 0 10px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 8px;
   border: 1px solid #555d68;
   border-radius: 4px;
   background: #20252c;
   color: #d8dde3;
-  font: 700 12px/1.15 monospace;
+  font: 700 11px/1 monospace;
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .dev-console__button:disabled {
   color: #777f89;
   cursor: not-allowed;
 }
-.dev-console__button-primary,
-.dev-console__button-secondary {
-  display: block;
+.dev-console__button[data-active-tone='replay'] {
+  border-color: #c94a56;
+  background: #fff4f4;
+  color: #9d2330;
 }
-.dev-console__button-primary {
-  font-size: 11px;
+.dev-console__button[data-active-tone='bonus'] {
+  border-color: #8b5cf6;
+  background: #f7f3ff;
+  color: #6d28d9;
 }
-.dev-console__button-secondary {
-  margin-top: 3px;
-  color: #8f98a3;
-  font-size: 9px;
-  font-weight: 600;
+.dev-console__button[data-active-tone='coordinates'] {
+  border-color: #63dbe8;
+  background: #f1fdff;
+  color: #087f8c;
 }
-.dev-console__status {
-  min-height: 27px;
-  color: #9ba4ae;
-  font: 600 9px/1.25 monospace;
-  text-align: center;
-}
-.dev-console__status[hidden] {
-  visibility: hidden;
-}
-.dev-console__status strong,
-.dev-console__status span {
-  display: block;
-}
-.dev-console__status strong {
-  margin-bottom: 2px;
-  color: #d8dde3;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+.dev-console__button[data-active-tone='paylines'] {
+  border-color: #d7a83d;
+  background: #fffaf0;
+  color: #9a6810;
 }

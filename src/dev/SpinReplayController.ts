@@ -75,13 +75,11 @@ export class SpinReplayController {
         replay.wager,
         0,
       );
-      // Reproduce the live wager deduction.
-      this.view.updateReplayHud(
+      // Reproduce the exact same financial presentation used by LIVE.
+      await this.view.animateBalanceDeductionBeat(
+        replay.balanceBeforeBet,
         replay.balanceAfterBet,
-        replay.wager,
-        0,
       );
-      await this.view.animateBalanceDeductionBeat();
       // Replay the captured spin presentation.
       await this.view.animateSpin();
       await this.view.animateReelStops(replay.primaryGrid);
@@ -113,7 +111,11 @@ export class SpinReplayController {
         replay.totalWin,
       );
       if (replay.totalWin > 0) {
-        await this.view.animatePayoutBeat();
+        await this.view.animatePayoutBeat(
+          replay.balanceAfterBet,
+          replay.finalBalance,
+          replay.totalWin,
+        );
       }
       // Deliberate settlement/readability hold. Replay availability remains
       // disabled until this completes and the live HUD is restored below.

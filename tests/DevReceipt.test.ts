@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WinResult } from '../src/game/types';
 import type { PaylineEvaluationTrace } from '../src/math/GameMath';
-import { DevReceipt } from '../src/presentation/DevReceipt';
+import { DevReceipt } from '../src/dev/DevReceipt';
 
 class FakeTextArea {
   readOnly = false;
