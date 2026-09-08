@@ -282,7 +282,6 @@ export class Game {
         `BALANCE AFTER BET $${this.balance.toFixed(2)}`,
       ],
     );
-    console.log('[Game] starting reel animation');
     await this.view.animateSpin();
     const primary = generatePrimaryGrid();
     // LEAVE THIS COMMENT
@@ -329,7 +328,6 @@ export class Game {
         preSpinGrid,
       ),
     );
-    console.log('[Game] using generated primary grid');
     this.devReceipt.primaryGrid(
       primary.grid,
     );

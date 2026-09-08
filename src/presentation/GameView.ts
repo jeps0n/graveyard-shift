@@ -475,9 +475,56 @@ export class GameView extends Container {
     await this.animateMoneyBeat(this.balanceText, 0x62d98b, 1.05);
   }
   async animatePayoutBeat(): Promise<void> {
-    await this.animateWinCreditBeat();
-    await this.animateBalanceCreditBeat();
+    gsap.killTweensOf(this.winText.scale);
+    gsap.killTweensOf(this.balanceText.scale);
+
+    this.winText.scale.set(1);
+    this.balanceText.scale.set(1);
+
+    this.winText.style.fill = 0x62d98b;
+    this.balanceText.style.fill = 0xffffff;
+
+    await new Promise<void>((resolve) => {
+      const timeline = gsap.timeline({
+        onComplete: () => {
+          this.winText.style.fill = 0xffffff;
+          this.balanceText.style.fill = 0xffffff;
+          resolve();
+        },
+      });
+
+      timeline
+        .to(this.winText.scale, {
+          x: 1.07,
+          y: 1.07,
+          duration: 0.08,
+          ease: 'power2.out',
+        }, 0)
+        .to(this.winText.scale, {
+          x: 1,
+          y: 1,
+          duration: 0.12,
+          ease: 'power2.inOut',
+          onComplete: () => {
+            this.winText.style.fill = 0xffffff;
+            this.balanceText.style.fill = 0x62d98b;
+          },
+        })
+        .to(this.balanceText.scale, {
+          x: 1.05,
+          y: 1.05,
+          duration: 0.08,
+          ease: 'power2.out',
+        })
+        .to(this.balanceText.scale, {
+          x: 1,
+          y: 1,
+          duration: 0.12,
+          ease: 'power2.inOut',
+        });
+    });
   }
+
   private async animateMoneyBeat(
     text: Text,
     accentColor: number,
