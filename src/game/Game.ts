@@ -1,6 +1,10 @@
 import type { Application } from 'pixi.js';
 import { AfterMidnight } from '../features/AfterMidnight';
 import {
+  SpinReplayController,
+  type LastSpinReplay,
+} from '../dev/SpinReplayController';
+import {
   evaluatePrimaryGrid,
   evaluateWins,
   generatePrimaryGrid,
@@ -17,23 +21,6 @@ import type {
 const CASCADE_DELAY = 800;
 const SCATTER_TRIGGER_COUNT = 3;
 type BetIncrement = 1 | 5 | 25;
-interface ReplayCascadeStep {
-  readonly removed: Array<{ reel: number; row: number }>;
-  readonly grid: ReelGrid;
-  readonly wins: WinResult[];
-}
-interface LastSpinReplay {
-  readonly wager: number;
-  readonly featureMultiplier: number;
-  readonly balanceAfterBet: number;
-  readonly finalBalance: number;
-  readonly totalWin: number;
-  readonly primaryGrid: ReelGrid;
-  readonly primaryWins: WinResult[];
-  readonly cascades: ReplayCascadeStep[];
-  readonly finalGrid: ReelGrid;
-  readonly allWins: WinResult[];
-}
 function cloneWins(wins: WinResult[]): WinResult[] {
   return wins.map((win) => ({
     ...win,
@@ -77,17 +64,16 @@ export class Game {
   private readonly devReceipt: DevReceipt;
   private forceAfterMidnightNextSpin = false;
   private onAfterMidnightDevTriggerConsumed: (() => void) | null = null;
-  private lastSpinReplay: LastSpinReplay | null = null;
   private replayCapture: LastSpinReplay | null = null;
-  private replayInProgress = false;
+  private readonly spinReplayController: SpinReplayController;
   private currentWin = 0;
-  private onLastSpinReplayAvailable: ((available: boolean) => void) | null = null;
   constructor(
     app: Application,
     devReceiptHost?: HTMLElement,
   ) {
     this.devReceipt = new DevReceipt(devReceiptHost);
     this.view = new GameView();
+    this.spinReplayController = new SpinReplayController(this.view);
     app.stage.addChild(this.view);
     this.view.spinButton.on(
       'pointertap',
@@ -151,7 +137,7 @@ export class Game {
     this.updateHud();
   }
   private clearBet(): void {
-    if (this.stateMachine.current !== 'IDLE' || this.replayInProgress) {
+    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
       return;
     }
     if (this.bet === 0) {
@@ -162,7 +148,7 @@ export class Game {
     this.view.animateWagerBeat();
   }
   private decreaseBet(): void {
-    if (this.stateMachine.current !== 'IDLE' || this.replayInProgress) {
+    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
       return;
     }
     this.bet = Math.max(
@@ -173,7 +159,7 @@ export class Game {
     this.view.animateWagerBeat();
   }
   private increaseBet(): void {
-    if (this.stateMachine.current !== 'IDLE' || this.replayInProgress) {
+    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
       return;
     }
     const maxBet = Math.min(
@@ -194,7 +180,7 @@ export class Game {
   private quickAddBet(
     increment: BetIncrement,
   ): void {
-    if (this.stateMachine.current !== 'IDLE' || this.replayInProgress) {
+    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
       return;
     }
     this.betIncrement = increment;
@@ -210,7 +196,7 @@ export class Game {
     this.view.animateWagerBeat();
   }
   private setMaxBet(): void {
-    if (this.stateMachine.current !== 'IDLE' || this.replayInProgress) {
+    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
       return;
     }
     this.bet = Math.min(
@@ -225,7 +211,7 @@ export class Game {
     this.view.setDevMode(enabled);
   }
   armAfterMidnightTrigger(): boolean {
-    if (this.stateMachine.current !== 'IDLE' || this.replayInProgress || this.forceAfterMidnightNextSpin) {
+    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress || this.forceAfterMidnightNextSpin) {
       return false;
     }
     this.forceAfterMidnightNextSpin = true;
@@ -235,73 +221,23 @@ export class Game {
     this.onAfterMidnightDevTriggerConsumed = handler;
   }
   setLastSpinReplayAvailableHandler(handler: (available: boolean) => void): void {
-    this.onLastSpinReplayAvailable = handler;
-    handler(this.lastSpinReplay !== null);
+    this.spinReplayController.setReplayAvailableHandler(handler);
   }
   async replayLastSpin(): Promise<boolean> {
-    if (this.stateMachine.current !== 'IDLE' || this.replayInProgress || !this.lastSpinReplay) {
+    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
       return false;
     }
-    const replay = this.lastSpinReplay;
-    const liveHud = {
+    return this.spinReplayController.replayLastSpin({
       balance: this.balance,
       bet: this.bet,
       win: this.currentWin,
-    };
-    let replayWin = 0;
-    const addReplayWins = (wins: WinResult[]): void => {
-      replayWin += wins.reduce(
-        (total, win) => total + win.payoutMultiplier * replay.wager * replay.featureMultiplier,
-        0,
-      );
-      this.view.updateReplayHud(replay.balanceAfterBet, replay.wager, replayWin);
-    };
-    this.replayInProgress = true;
-    this.onLastSpinReplayAvailable?.(false);
-    this.view.setSpinEnabled(false);
-    this.view.clearWinningPaylines();
-    this.view.updateReplayHud(replay.balanceAfterBet, replay.wager, 0);
-    try {
-      await this.view.animateBalanceDeductionBeat();
-      await this.view.animateSpin();
-      await this.view.animateReelStops(replay.primaryGrid);
-      const cumulativeWins = cloneWins(replay.primaryWins);
-      if (replay.primaryWins.length > 0) {
-        this.view.displayWinningPaylines(cumulativeWins);
-        await this.view.animateWinningSymbols(replay.primaryWins);
-        addReplayWins(replay.primaryWins);
-        await this.view.animateWinCreditBeat();
-      }
-      for (const cascade of replay.cascades) {
-        await this.view.animateCascadeStep(cascade.removed, cascade.grid);
-        this.view.displayWinningPaylines(cumulativeWins);
-        await delay(CASCADE_DELAY);
-        if (cascade.wins.length > 0) {
-          cumulativeWins.push(...cloneWins(cascade.wins));
-          this.view.displayWinningPaylines(cumulativeWins);
-          await this.view.animateWinningSymbols(cascade.wins);
-          addReplayWins(cascade.wins);
-          await this.view.animateWinCreditBeat();
-        }
-      }
-      this.view.displayResult(replay.finalGrid);
-      this.view.displayWinningPaylines(replay.allWins);
-      this.view.updateReplayHud(replay.finalBalance, replay.wager, replay.totalWin);
-      if (replay.totalWin > 0) {
-        await this.view.animateBalanceCreditBeat();
-      }
-      await delay(200);
-      return true;
-    } finally {
-      this.replayInProgress = false;
-      this.view.updateHud(liveHud.balance, liveHud.bet, liveHud.win, this.betIncrement);
-      this.onLastSpinReplayAvailable?.(true);
-    }
+      activeIncrement: this.betIncrement,
+    });
   }
   private async handleSpin(): Promise<void> {
     if (
       this.stateMachine.current !==
-      'IDLE' || this.replayInProgress
+      'IDLE' || this.spinReplayController.inProgress
     ) {
       return;
     }
@@ -311,7 +247,7 @@ export class Game {
     if (this.balance < this.bet) {
       return;
     }
-    this.onLastSpinReplayAvailable?.(false);
+    this.spinReplayController.setAvailability(false);
     this.devReceipt.clear();
     const preSpinGrid = cloneGrid(
       this.currentGrid,
@@ -413,6 +349,8 @@ export class Game {
     this.replayCapture = {
       wager: this.bet,
       featureMultiplier,
+      preSpinGrid: cloneGrid(preSpinGrid),
+      balanceBeforeBet,
       balanceAfterBet: this.balance,
       finalBalance: this.balance,
       totalWin: 0,
@@ -477,7 +415,7 @@ export class Game {
           scatterCount,
         );
       }
-      this.onLastSpinReplayAvailable?.(this.lastSpinReplay !== null);
+      this.spinReplayController.setAvailability(true);
       return;
     }
     this.stateMachine.transition(
@@ -600,7 +538,7 @@ export class Game {
         scatterCount,
       );
     }
-    this.onLastSpinReplayAvailable?.(this.lastSpinReplay !== null);
+    this.spinReplayController.setAvailability(true);
   }
   private commitReplayCapture(
     finalGrid: ReelGrid,
@@ -610,13 +548,13 @@ export class Game {
     if (!this.replayCapture) {
       return;
     }
-    this.lastSpinReplay = {
+    this.spinReplayController.setReplay({
       ...this.replayCapture,
       finalGrid: cloneGrid(finalGrid),
       allWins: cloneWins(allWins),
       totalWin,
       finalBalance: this.replayCapture.balanceAfterBet + totalWin,
-    };
+    });
     this.replayCapture = null;
   }
   private consumeForcedAfterMidnight(): boolean {
