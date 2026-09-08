@@ -8,41 +8,27 @@ import type {
   PaylineEvaluationTrace,
   RngDrawTrace,
 } from '../math/GameMath';
-const RECEIPT_WIDTH = 420;
-const RECEIPT_HEIGHT = 760;
-const GAME_WIDTH = 1000;
-const GAP = 0;
 const GRID_COLUMN_WIDTH = 8;
 export class DevReceipt {
   private readonly element: HTMLTextAreaElement;
   private readonly lines: string[] = [];
   private sequence = 0;
-  constructor() {
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    document.body.style.margin = '0';
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-      canvas.style.position = 'fixed';
-      canvas.style.left = '50%';
-      canvas.style.top = '50%';
-      canvas.style.transform = 'translate(-50%, -50%)';
-    }
+  constructor(host?: HTMLElement) {
     this.element = document.createElement('textarea');
     this.element.readOnly = true;
     Object.assign(this.element.style, {
-      position: 'fixed',
-      left: `calc(50% + ${GAME_WIDTH / 2 + GAP}px)`,
-      top: '50%',
-      transform: 'translateY(-50%)',
-      width: `${RECEIPT_WIDTH}px`,
-      height: `${RECEIPT_HEIGHT}px`,
+      position: host ? 'absolute' : 'fixed',
+      inset: host ? '0' : 'auto',
+      left: host ? '0' : '-9999px',
+      top: host ? '0' : '-9999px',
+      width: host ? '100%' : '1px',
+      height: host ? '100%' : '1px',
       boxSizing: 'border-box',
-      padding: '16px',
+      padding: '20px',
       margin: '0',
       background: '#15191f',
-      border: '2px solid #444b55',
-      borderRadius: '12px',
+      border: host ? '2px solid #444b55' : '0',
+      borderRadius: '0',
       outline: 'none',
       resize: 'none',
       overflowY: 'auto',
@@ -50,9 +36,9 @@ export class DevReceipt {
       color: '#cccccc',
       fontFamily: 'monospace',
       fontSize: '12px',
-      lineHeight: '16px',
+      lineHeight: '17px',
       whiteSpace: 'pre',
-      zIndex: '1000',
+      zIndex: '1',
       userSelect: 'text',
       WebkitUserSelect: 'text',
     });
@@ -60,7 +46,7 @@ export class DevReceipt {
       'aria-label',
       'Dev receipt',
     );
-    document.body.appendChild(this.element);
+    (host ?? document.body).appendChild(this.element);
     this.render();
   }
   clear(): void {

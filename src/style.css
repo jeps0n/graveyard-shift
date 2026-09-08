@@ -9,6 +9,45 @@ body {
 body {
   background: #0b0d10;
 }
+.presentation-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1000px) minmax(0, 1fr);
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #0b0d10;
+}
+.presentation-side {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.presentation-side--left {
+  /* Reserved for final GRAVEYARD SHIFT branding / atmosphere. */
+  background: #0b0d10;
+}
+.presentation-side--right {
+  /* DEV: Dev Receipt owns this region. PORTFOLIO: final artwork owns it. */
+  background: #0b0d10;
+}
+.game-host {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #0b0d10;
+}
 canvas {
   display: block;
+}
+/* On constrained screens, decorative presentation regions disappear and
+   gameplay gets the full viewport width. */
+@media (max-width: 1360px) {
+  .presentation-shell {
+    grid-template-columns: 0 minmax(0, 1fr) 0;
+  }
+  .presentation-side {
+    visibility: hidden;
+  }
 }

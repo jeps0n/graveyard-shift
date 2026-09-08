@@ -53,37 +53,14 @@ export class GameView extends Container {
         )
         .fill(0x0b0d10);
     this.addChild(background);
-    // Game title.
-    const title = new Text({
-      text: 'GRAVEYARD SHIFT',
-      style: {
-        fill: 0xffffff,
-        fontSize: 42,
-        fontWeight: 'bold',
-      },
-    });
-    title.anchor.set(0.5);
-    title.x = GAME_WIDTH / 2;
-    title.y = 60;
-    this.addChild(title);
-    // Game subtitle.
-    const subtitle = new Text({
-      text: 'THE DEAD END',
-      style: {
-        fill: 0x999999,
-        fontSize: 18,
-      },
-    });
-    subtitle.anchor.set(0.5);
-    subtitle.x = GAME_WIDTH / 2;
-    subtitle.y = 105;
-    this.addChild(subtitle);
+    // Branding moves to the outer presentation layer so the gameplay
+    // canvas can use its vertical space for the slot itself.
     // Reel frame and reel view.
     const reelFrame =
       new Graphics()
         .roundRect(
           150,
-          150,
+          70,
           700,
           450,
           20,
@@ -96,12 +73,11 @@ export class GameView extends Container {
     this.addChild(reelFrame);
     this.reelView = new ReelView();
     this.reelView.x = 175;
-    this.reelView.y = 175;
+    this.reelView.y = 95;
     this.addChild(this.reelView);
     // ─────────────────────────────────────────────
     // HUD / Wager Controls
     // ─────────────────────────────────────────────
-
     // Money readouts share one aligned baseline and visual hierarchy.
     const balanceLabel = new Text({
       text: 'BALANCE',
@@ -113,9 +89,8 @@ export class GameView extends Container {
     });
     balanceLabel.anchor.set(0.5);
     balanceLabel.x = 260;
-    balanceLabel.y = 620;
+    balanceLabel.y = 548;
     this.addChild(balanceLabel);
-
     this.balanceText = new Text({
       text: '$100.00',
       style: {
@@ -126,9 +101,8 @@ export class GameView extends Container {
     });
     this.balanceText.anchor.set(0.5);
     this.balanceText.x = 260;
-    this.balanceText.y = 642;
+    this.balanceText.y = 572;
     this.addChild(this.balanceText);
-
     const wagerLabel = new Text({
       text: 'WAGER',
       style: {
@@ -139,9 +113,8 @@ export class GameView extends Container {
     });
     wagerLabel.anchor.set(0.5);
     wagerLabel.x = 500;
-    wagerLabel.y = 620;
+    wagerLabel.y = 548;
     this.addChild(wagerLabel);
-
     this.betText = new Text({
       text: '$0.00',
       style: {
@@ -152,9 +125,8 @@ export class GameView extends Container {
     });
     this.betText.anchor.set(0.5);
     this.betText.x = 500;
-    this.betText.y = 642;
+    this.betText.y = 572;
     this.addChild(this.betText);
-
     const winLabel = new Text({
       text: 'WIN',
       style: {
@@ -165,9 +137,8 @@ export class GameView extends Container {
     });
     winLabel.anchor.set(0.5);
     winLabel.x = 740;
-    winLabel.y = 620;
+    winLabel.y = 548;
     this.addChild(winLabel);
-
     this.winText = new Text({
       text: '$0.00',
       style: {
@@ -178,9 +149,8 @@ export class GameView extends Container {
     });
     this.winText.anchor.set(0.5);
     this.winText.x = 740;
-    this.winText.y = 642;
+    this.winText.y = 572;
     this.addChild(this.winText);
-
     const betIncrementText = new Text({
       text: 'BET INCREMENT',
       style: {
@@ -191,63 +161,59 @@ export class GameView extends Container {
     });
     betIncrementText.anchor.set(0.5);
     betIncrementText.x = 500;
-    betIncrementText.y = 670;
+    betIncrementText.y = 610;
     this.addChild(betIncrementText);
-
     // Hybrid quick-add controls:
     // clicking one immediately adds that amount and also makes it
     // the active value used by the + / − controls.
     this.bet1Button = this.createBetButton(
       '$1',
       414,
-      681,
+      624,
       52,
       34,
     );
     this.bet5Button = this.createBetButton(
       '$5',
       474,
-      681,
+      624,
       52,
       34,
     );
     this.bet25Button = this.createBetButton(
       '$25',
       534,
-      681,
+      624,
       60,
       34,
     );
-
     this.betDownButton = this.createBetButton(
       '−',
       389,
-      724,
+      670,
       44,
       34,
     );
     this.betUpButton = this.createBetButton(
       '+',
       441,
-      724,
+      670,
       44,
       34,
     );
     this.maxBetButton = this.createBetButton(
       'MAX BET',
       493,
-      724,
+      670,
       112,
       34,
     );
-
     this.addChild(this.bet1Button);
     this.addChild(this.bet5Button);
     this.addChild(this.bet25Button);
     this.addChild(this.betDownButton);
     this.addChild(this.betUpButton);
     this.addChild(this.maxBetButton);
-
     // ─────────────────────────────────────────────
     // Spin Control
     // ─────────────────────────────────────────────
@@ -256,9 +222,9 @@ export class GameView extends Container {
       new Graphics()
         .roundRect(
           400,
-          763,
+          722,
           200,
-          32,
+          42,
           12,
         )
         .fill(0x8b1e2d);
@@ -276,7 +242,7 @@ export class GameView extends Container {
     });
     this.spinText.anchor.set(0.5);
     this.spinText.x = 500;
-    this.spinText.y = 779;
+    this.spinText.y = 743;
     this.addChild(this.spinText);
   }
   private createBetButton(
@@ -295,19 +261,16 @@ export class GameView extends Container {
         fontWeight: 'bold',
       },
     });
-
     text.anchor.set(0.5);
     text.x = width / 2;
     text.y = height / 2;
     button.addChild(text);
-
     // Center the transform origin so the press beat does not shift the button.
     button.pivot.set(width / 2, height / 2);
     button.x = x + width / 2;
     button.y = y + height / 2;
     button.eventMode = 'static';
     button.cursor = 'pointer';
-
     button.clear()
       .roundRect(
         0,
@@ -324,7 +287,6 @@ export class GameView extends Container {
         width: 2,
         color: 0x444b55,
       });
-
     button.on('pointerover', () => {
       if (button.eventMode !== 'static') {
         return;
@@ -335,7 +297,6 @@ export class GameView extends Container {
         overwrite: true,
       });
     });
-
     button.on('pointerout', () => {
       gsap.to(button, {
         alpha: button.eventMode === 'static' ? 1 : 0.12,
@@ -349,7 +310,6 @@ export class GameView extends Container {
         overwrite: true,
       });
     });
-
     button.on('pointerdown', () => {
       if (button.eventMode !== 'static') {
         return;
@@ -361,7 +321,6 @@ export class GameView extends Container {
         overwrite: true,
       });
     });
-
     button.on('pointerup', () => {
       gsap.to(button.scale, {
         x: 1,
@@ -371,7 +330,6 @@ export class GameView extends Container {
         overwrite: true,
       });
     });
-
     button.on('pointerupoutside', () => {
       gsap.to(button.scale, {
         x: 1,
@@ -380,10 +338,8 @@ export class GameView extends Container {
         overwrite: true,
       });
     });
-
     return button;
   }
-
   // Updates hybrid increment selection and wager-control availability.
   updateBetControls(
     balance: number,
@@ -399,14 +355,12 @@ export class GameView extends Container {
         { button: this.bet5Button, value: 5, width: 52 },
         { button: this.bet25Button, value: 25, width: 60 },
       ];
-
     incrementButtons.forEach(({
       button,
       value,
       width,
     }) => {
       const selected = value === activeIncrement;
-
       button.clear()
         .roundRect(0, 0, width, 34, 10)
         .fill({
@@ -421,7 +375,6 @@ export class GameView extends Container {
             ? 0xd9dde3
             : 0x444b55,
         });
-
       button.alpha = balance > 0 ? 1 : 0.12;
       button.eventMode = balance > 0
         ? 'static'
@@ -430,40 +383,33 @@ export class GameView extends Container {
         ? 'pointer'
         : 'default';
     });
-
     const maxBet = Math.min(balance, 100);
     const canDecrease = bet > 0;
     const canIncrease = bet < maxBet;
     const canMaxBet = balance > 0 && bet < maxBet;
-
     this.betDownButton.alpha = canDecrease ? 1 : 0.12;
     this.betUpButton.alpha = canIncrease ? 1 : 0.12;
     this.maxBetButton.alpha = canMaxBet ? 1 : 0.12;
-
     this.betDownButton.eventMode =
       canDecrease ? 'static' : 'none';
     this.betUpButton.eventMode =
       canIncrease ? 'static' : 'none';
     this.maxBetButton.eventMode =
       canMaxBet ? 'static' : 'none';
-
     this.betDownButton.cursor =
       canDecrease ? 'pointer' : 'default';
     this.betUpButton.cursor =
       canIncrease ? 'pointer' : 'default';
     this.maxBetButton.cursor =
       canMaxBet ? 'pointer' : 'default';
-
     this.setSpinEnabled(bet > 0);
   }
-
   // Small one-shot emphasis used whenever the wager changes.
   animateWagerBeat(
     peakScale = 1.06,
   ): void {
     gsap.killTweensOf(this.betText.scale);
     this.betText.scale.set(1);
-
     gsap.timeline()
       .to(this.betText.scale, {
         x: peakScale,
@@ -478,7 +424,6 @@ export class GameView extends Container {
         ease: 'power2.inOut',
       });
   }
-
   // ─────────────────────────────────────────────
   // Spin Control State
   // ─────────────────────────────────────────────
@@ -496,7 +441,6 @@ export class GameView extends Container {
         : 'default';
     this.spinButton.alpha =
       enabled ? 1 : 0.12;
-
     this.spinText.alpha =
       enabled ? 1 : 0.12;
   }
@@ -567,7 +511,7 @@ export class GameView extends Container {
         });
       panel.addChild(panelFrame);
       panel.x = 500;
-      panel.y = 375;
+      panel.y = 295;
       panel.scale.set(0.96);
       overlay.addChild(panel);
       // ─────────────────────────────────────────────
@@ -819,10 +763,8 @@ export class GameView extends Container {
                     gsap.killTweensOf(card.container);
                     gsap.killTweensOf(card.multiplier.scale);
                   });
-
                   gsap.killTweensOf(panel.scale);
                   gsap.killTweensOf(overlay);
-
                   overlay.destroy({ children: true });
                   resolve(selectedMultiplier);
                 },
@@ -886,7 +828,6 @@ export class GameView extends Container {
       // ─────────────────────────────────────────────
       this.addChild(overlay);
       overlay.alpha = 0;
-
       const panelWipe = new Graphics()
         .poly([
           -15.5, -260,
@@ -897,23 +838,19 @@ export class GameView extends Container {
         .fill(0xd9dde3);
       panel.addChild(panelWipe);
       panelWipe.mask = panelMask;
-
       panel.alpha = 0;
       panel.scale.set(0.96);
       panelWipe.x = -450;
-
       gsap.to(overlay, {
         alpha: 1,
         duration: 0.18,
         ease: 'power1.out',
       });
-
       gsap.to(panel, {
         alpha: 1,
         duration: 0.2,
         ease: 'power2.out',
       });
-
       gsap.to(panelWipe, {
         x: 450,
         duration: 0.36,
@@ -923,7 +860,6 @@ export class GameView extends Container {
           panelWipe.destroy();
         },
       });
-
       gsap.to(panel.scale, {
         x: 1,
         y: 1,
@@ -931,13 +867,11 @@ export class GameView extends Container {
         delay: 0.04,
         ease: 'back.out(1.4)',
       });
-
       choices.forEach((choice, index) => {
         const card = cards.get(choice);
         if (!card) {
           return;
         }
-
         gsap.fromTo(
           card.container,
           {

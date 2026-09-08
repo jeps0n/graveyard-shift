@@ -52,9 +52,12 @@ export class Game {
     new GameStateMachine();
   private afterMidnight =
     new AfterMidnight();
-  private readonly devReceipt =
-    new DevReceipt();
-  constructor(app: Application) {
+  private readonly devReceipt: DevReceipt;
+  constructor(
+    app: Application,
+    devReceiptHost?: HTMLElement,
+  ) {
+    this.devReceipt = new DevReceipt(devReceiptHost);
     this.view = new GameView();
     app.stage.addChild(this.view);
     this.view.spinButton.on(
@@ -116,7 +119,6 @@ export class Game {
     if (this.stateMachine.current !== 'IDLE') {
       return;
     }
-
     this.bet = Math.max(
       0,
       this.bet - this.betIncrement,
@@ -124,12 +126,10 @@ export class Game {
     this.updateHud();
     this.view.animateWagerBeat();
   }
-
   private increaseBet(): void {
     if (this.stateMachine.current !== 'IDLE') {
       return;
     }
-
     const maxBet = Math.min(
       this.balance,
       100,
@@ -138,25 +138,20 @@ export class Game {
       maxBet,
       this.bet + this.betIncrement,
     );
-
     if (nextBet === this.bet) {
       return;
     }
-
     this.bet = nextBet;
     this.updateHud();
     this.view.animateWagerBeat();
   }
-
   private quickAddBet(
     increment: BetIncrement,
   ): void {
     if (this.stateMachine.current !== 'IDLE') {
       return;
     }
-
     this.betIncrement = increment;
-
     const maxBet = Math.min(
       this.balance,
       100,
@@ -165,11 +160,9 @@ export class Game {
       maxBet,
       this.bet + increment,
     );
-
     this.updateHud();
     this.view.animateWagerBeat();
   }
-
   private setMaxBet(): void {
     if (this.stateMachine.current !== 'IDLE') {
       return;
