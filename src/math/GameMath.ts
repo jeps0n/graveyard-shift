@@ -145,9 +145,11 @@ function getWinningPositions(
     }));
 }
 // Evaluate a single payline from left to right.
-// Marge acts as a wild and can substitute for the target symbol.
-// Scatter does not start a payline win.
-// A win requires at least three consecutive matching positions.
+// Marge is a best-pay wild: evaluate every eligible regular symbol
+// plus Marge herself, then award the single highest-paying valid result.
+// Scatter is never a substitution target and blocks a line sequence.
+// Ties prefer the longer matching sequence so the cascade removes the
+// most specific winning combination.
 function evaluatePayline(
   grid: ReelGrid,
   payline: number[],
@@ -156,116 +158,105 @@ function evaluatePayline(
   win: WinResult | null;
   trace: PaylineEvaluationTrace;
 } {
-  const path =
-    getWinningPositions(
-      payline,
-      5,
-    );
+  const path = getWinningPositions(payline, 5);
   const symbols = path.map(
-    ({ reel, row }) =>
-      grid[reel][row],
+    ({ reel, row }) => grid[reel][row],
   );
-  let targetSymbol:
-    | SymbolId
-    | null = null;
-  for (let reel = 0; reel < 5; reel++) {
-    const symbol =
-      grid[reel][payline[reel]];
-    if (symbol !== 'marge') {
-      if (symbol === 'scatter') {
-        return {
-          win: null,
-          trace: {
-            payline:
-              paylineIndex + 1,
-            path,
-            symbols,
-            targetSymbol: null,
-            matchedCount: 0,
-            result: 'NO WIN',
-            payoutMultiplier: 0,
-            blockingSymbol:
-              'scatter',
-            reason:
-              'Scatter cannot start a payline win.',
-          },
-        };
+  const eligibleTargets: SymbolId[] = ['marge'];
+
+  const firstNonWild = symbols.find(
+    (symbol) => symbol !== 'marge',
+  );
+
+  if (
+    firstNonWild &&
+    firstNonWild !== 'scatter'
+  ) {
+    eligibleTargets.push(firstNonWild);
+  }
+
+  let bestWin: WinResult | null = null;
+
+  for (const targetSymbol of eligibleTargets) {
+    let count = 0;
+    for (let reel = 0; reel < 5; reel++) {
+      const symbol = grid[reel][payline[reel]];
+      const matches =
+        targetSymbol === 'marge'
+          ? symbol === 'marge'
+          : symbol === targetSymbol || symbol === 'marge';
+      if (!matches) {
+        break;
       }
-      targetSymbol = symbol;
-      break;
-    }
-  }
-  if (!targetSymbol) {
-    targetSymbol = 'marge';
-  }
-  let count = 0;
-  for (let reel = 0; reel < 5; reel++) {
-    const symbol =
-      grid[reel][payline[reel]];
-    if (
-      symbol === targetSymbol ||
-      symbol === 'marge'
-    ) {
       count++;
-    } else {
-      break;
+    }
+
+    if (count < 3) {
+      continue;
+    }
+
+    const payoutCount = Math.min(count, 5) as 3 | 4 | 5;
+    const payoutMultiplier =
+      PAYTABLE[targetSymbol].payoutMultipliers[payoutCount];
+    const candidate: WinResult = {
+      symbol: targetSymbol,
+      count: payoutCount,
+      payoutMultiplier,
+      payline: paylineIndex + 1,
+      positions: getWinningPositions(payline, payoutCount),
+    };
+
+    if (
+      !bestWin ||
+      candidate.payoutMultiplier > bestWin.payoutMultiplier ||
+      (candidate.payoutMultiplier === bestWin.payoutMultiplier &&
+        candidate.count > bestWin.count)
+    ) {
+      bestWin = candidate;
     }
   }
-  if (count < 3) {
-    const blockingSymbol =
-      grid[count][payline[count]];
+
+  if (!bestWin) {
+    const firstBlockingIndex = symbols.findIndex(
+      (symbol, index) =>
+        index === 0 ||
+        (symbol !== 'marge' && symbol !== symbols[0]),
+    );
+    const blockingSymbol = symbols.find(
+      (symbol) => symbol === 'scatter',
+    ) ?? (firstBlockingIndex >= 0 ? symbols[firstBlockingIndex] : null);
     return {
       win: null,
       trace: {
-        payline:
-          paylineIndex + 1,
+        payline: paylineIndex + 1,
         path,
         symbols,
-        targetSymbol,
-        matchedCount: count,
+        targetSymbol: null,
+        matchedCount: 0,
         result: 'NO WIN',
         payoutMultiplier: 0,
         blockingSymbol,
-        reason:
-          `Only ${count} matching position(s) before the sequence was blocked.`,
+        reason: 'No eligible best-pay combination reached three consecutive positions.',
       },
     };
   }
-  const payoutCount =
-    Math.min(count, 5) as
-    | 3
-    | 4
-    | 5;
-  const payoutMultiplier =
-    PAYTABLE[targetSymbol].payoutMultipliers[
-    payoutCount
-    ];
-  const win: WinResult = {
-    symbol: targetSymbol,
-    count: payoutCount,
-    payoutMultiplier,
-    payline:
-      paylineIndex + 1,
-    positions:
-      getWinningPositions(
-        payline,
-        payoutCount,
-      ),
-  };
+
   return {
-    win,
+    win: bestWin,
     trace: {
-      payline:
-        paylineIndex + 1,
+      payline: paylineIndex + 1,
       path,
       symbols,
-      targetSymbol,
-      matchedCount: payoutCount,
+      targetSymbol: bestWin.symbol,
+      matchedCount: bestWin.count,
       result: 'WIN',
-      payoutMultiplier,
-      blockingSymbol: null,
+      payoutMultiplier: bestWin.payoutMultiplier,
+      blockingSymbol:
+        bestWin.count < 5
+          ? grid[bestWin.count][payline[bestWin.count]]
+          : null,
       reason:
-        `Matched ${payoutCount} consecutive position(s).`,
+        `Best-pay Wild evaluation selected ${bestWin.count} ${bestWin.symbol.toUpperCase()} for ×${bestWin.payoutMultiplier}.`,
     },
   };
 }

@@ -16,7 +16,7 @@ import type {
 } from './types';
 const CASCADE_DELAY = 800;
 const SCATTER_TRIGGER_COUNT = 3;
-const FORCE_AFTER_MIDNIGHT = true;
+const FORCE_AFTER_MIDNIGHT = false;
 type BetIncrement = 1 | 5 | 25;
 const INITIAL_DISPLAYED_GRID: ReelGrid = [
   ['coffee', 'burger', 'gas'],
@@ -408,9 +408,13 @@ export class Game {
     this.finishSpin(
       finalResult,
     );
+    // Scatter stays live through cascades. Because Scatter never
+    // participates in line wins, existing Scatters persist while refill
+    // symbols can add more. Check the final resolved grid once so After
+    // Midnight can trigger at most once for this spin.
     const scatterCount =
       this.countScatters(
-        result.grid,
+        cascadeGrid,
       );
     if (
       FORCE_AFTER_MIDNIGHT ||
