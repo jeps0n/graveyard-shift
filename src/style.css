@@ -51,3 +51,60 @@ canvas {
     visibility: hidden;
   }
 }
+
+.dev-console {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 176px;
+  min-width: 0;
+  min-height: 0;
+  background: #0b0d10;
+}
+.dev-console[hidden] {
+  display: none;
+}
+.dev-console__receipt {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.dev-console__controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 2px solid #444b55;
+  border-top: 0;
+  background: #15191f;
+}
+.dev-console__group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.dev-console__label {
+  color: #8f98a3;
+  font: 700 11px/1 monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+.dev-console__button {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #555d68;
+  border-radius: 4px;
+  background: #20252c;
+  color: #d8dde3;
+  font: 700 12px/1.15 monospace;
+  cursor: pointer;
+}
+.dev-console__button:disabled {
+  color: #777f89;
+  cursor: not-allowed;
+}

@@ -16,7 +16,6 @@ import type {
 } from './types';
 const CASCADE_DELAY = 800;
 const SCATTER_TRIGGER_COUNT = 3;
-const FORCE_AFTER_MIDNIGHT = false;
 type BetIncrement = 1 | 5 | 25;
 const INITIAL_DISPLAYED_GRID: ReelGrid = [
   ['coffee', 'burger', 'gas'],
@@ -53,6 +52,8 @@ export class Game {
   private afterMidnight =
     new AfterMidnight();
   private readonly devReceipt: DevReceipt;
+  private forceAfterMidnightNextSpin = false;
+  private onAfterMidnightDevTriggerConsumed: (() => void) | null = null;
   constructor(
     app: Application,
     devReceiptHost?: HTMLElement,
@@ -174,6 +175,23 @@ export class Game {
     this.updateHud();
     this.view.animateWagerBeat(1.09);
   }
+  setDevMode(enabled: boolean): void {
+    this.devReceipt.setVisible(enabled);
+    this.view.setDevMode(enabled);
+  }
+
+  armAfterMidnightTrigger(): boolean {
+    if (this.stateMachine.current !== 'IDLE' || this.forceAfterMidnightNextSpin) {
+      return false;
+    }
+    this.forceAfterMidnightNextSpin = true;
+    return true;
+  }
+
+  setAfterMidnightDevTriggerConsumedHandler(handler: () => void): void {
+    this.onAfterMidnightDevTriggerConsumed = handler;
+  }
+
   private async handleSpin(): Promise<void> {
     if (
       this.stateMachine.current !==
@@ -204,6 +222,21 @@ export class Game {
     this.stateMachine.transition(
       'SPINNING',
     );
+    this.view.setSpinEnabled(false);
+    this.balance -= this.bet;
+    this.view.updateHud(
+      this.balance,
+      this.bet,
+      0,
+      this.betIncrement,
+    );
+    this.devReceipt.event(
+      'BET DEDUCTED',
+      [
+        `BET              $${this.bet.toFixed(2)}`,
+        `BALANCE AFTER BET $${this.balance.toFixed(2)}`,
+      ],
+    );
     console.log('[Game] starting reel animation');
     await this.view.animateSpin();
 
@@ -228,7 +261,6 @@ export class Game {
         'IDLE → SPINNING',
       ],
     );
-    this.view.setSpinEnabled(false);
     this.spinNumber++;
     const featureMultiplier =
       this.nextSpinMultiplier;
@@ -244,14 +276,6 @@ export class Game {
       [
         `APPLIED TO THIS SPIN ×${featureMultiplier}`,
         'STORED MULTIPLIER RESET TO ×1',
-      ],
-    );
-    this.balance -= this.bet;
-    this.devReceipt.event(
-      'BET DEDUCTED',
-      [
-        `BET              $${this.bet.toFixed(2)}`,
-        `BALANCE AFTER BET $${this.balance.toFixed(2)}`,
       ],
     );
     this.devReceipt.event(
@@ -323,9 +347,8 @@ export class Game {
           result.grid,
         );
       if (
-        FORCE_AFTER_MIDNIGHT ||
-        scatterCount >=
-        SCATTER_TRIGGER_COUNT
+        this.consumeForcedAfterMidnight() ||
+        scatterCount >= SCATTER_TRIGGER_COUNT
       ) {
         await this.triggerAfterMidnight(
           scatterCount,
@@ -440,15 +463,23 @@ export class Game {
         cascadeGrid,
       );
     if (
-      FORCE_AFTER_MIDNIGHT ||
-      scatterCount >=
-      SCATTER_TRIGGER_COUNT
+      this.consumeForcedAfterMidnight() ||
+      scatterCount >= SCATTER_TRIGGER_COUNT
     ) {
       await this.triggerAfterMidnight(
         scatterCount,
       );
     }
   }
+  private consumeForcedAfterMidnight(): boolean {
+    if (!this.forceAfterMidnightNextSpin) {
+      return false;
+    }
+    this.forceAfterMidnightNextSpin = false;
+    this.onAfterMidnightDevTriggerConsumed?.();
+    return true;
+  }
+
   private async triggerAfterMidnight(
     scatterCount: number,
   ): Promise<void> {

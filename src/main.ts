@@ -1,29 +1,35 @@
 import { Application } from 'pixi.js';
 import './style.css';
+import { DevModeController } from './dev/DevModeController';
 import { Game } from './game/Game';
 import {
   GAME_HEIGHT,
   GAME_WIDTH,
 } from './presentation/GameView';
-// Development mode gives the entire right presentation region to the
-// Dev Receipt. Flip this to false when the final right-side artwork exists.
-const SHOW_DEV_RECEIPT = true;
+
 const shell = document.createElement('main');
 shell.className = 'presentation-shell';
+
 const leftPresentation = document.createElement('section');
 leftPresentation.className = 'presentation-side presentation-side--left';
 leftPresentation.setAttribute('aria-hidden', 'true');
+
 const gameHost = document.createElement('section');
 gameHost.className = 'game-host';
+
 const rightPresentation = document.createElement('aside');
 rightPresentation.className = 'presentation-side presentation-side--right';
-rightPresentation.dataset.mode = SHOW_DEV_RECEIPT ? 'dev' : 'portfolio';
+rightPresentation.dataset.mode = 'portfolio';
+
+const receiptHost = document.createElement('div');
+
 shell.append(
   leftPresentation,
   gameHost,
   rightPresentation,
 );
 document.body.appendChild(shell);
+
 const app = new Application();
 await app.init({
   width: Math.max(1, gameHost.clientWidth),
@@ -32,10 +38,20 @@ await app.init({
   antialias: true,
 });
 gameHost.appendChild(app.canvas);
-const game = new Game(
-  app,
-  SHOW_DEV_RECEIPT ? rightPresentation : undefined,
-);
+
+const game = new Game(app, receiptHost);
+const devModeController = new DevModeController({
+  rightPresentation,
+  receiptHost,
+  onModeChange: (enabled) => {
+    game.setDevMode(enabled);
+  },
+  onTriggerAfterMidnight: () => game.armAfterMidnightTrigger(),
+});
+game.setAfterMidnightDevTriggerConsumedHandler(() => {
+  devModeController.markAfterMidnightConsumed();
+});
+
 function resizeGame(): void {
   const width = Math.max(1, gameHost.clientWidth);
   const height = Math.max(1, gameHost.clientHeight);
@@ -47,5 +63,6 @@ function resizeGame(): void {
   game.view.x = (width - GAME_WIDTH * scale) / 2;
   game.view.y = (height - GAME_HEIGHT * scale) / 2;
 }
+
 window.addEventListener('resize', resizeGame);
 resizeGame();

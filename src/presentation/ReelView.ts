@@ -53,6 +53,7 @@ export class ReelView extends Container {
   private readonly reelTiles: TileVisual[][] = [];
   private readonly winningCells = new Map<string, Graphics>();
   private displayedGrid: ReelGrid = [];
+  private devMode = false;
   constructor() {
     super();
     this.gridLayer = new Container();
@@ -376,7 +377,23 @@ export class ReelView extends Container {
       setTimeout(resolve, 180);
     });
   }
+  setDevMode(enabled: boolean): void {
+    this.devMode = enabled;
+    this.paylineLayer.visible = enabled;
+    for (const tiles of this.reelTiles) {
+      for (const tile of tiles) {
+        tile.coordinate.visible = enabled;
+      }
+    }
+    if (!enabled) {
+      this.clearWinningPaylines();
+    }
+  }
+
   displayWinningPaylines(wins: WinResult[]): void {
+    if (!this.devMode) {
+      return;
+    }
     this.paylineLayer.removeChildren();
     const displayedPaylines = new Set<number>();
     for (const win of wins) {
@@ -559,6 +576,7 @@ export class ReelView extends Container {
     });
     coordinate.x = 8;
     coordinate.y = 8;
+    coordinate.visible = this.devMode;
     tileVisual.addChild(coordinate);
     return {
       container: tileContainer,

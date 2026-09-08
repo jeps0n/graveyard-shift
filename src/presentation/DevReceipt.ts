@@ -49,6 +49,10 @@ export class DevReceipt {
     (host ?? document.body).appendChild(this.element);
     this.render();
   }
+  setVisible(visible: boolean): void {
+    this.element.style.display = visible ? 'block' : 'none';
+  }
+
   clear(): void {
     this.lines.length = 0;
     this.sequence = 0;

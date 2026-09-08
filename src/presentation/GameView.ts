@@ -490,6 +490,10 @@ export class GameView extends Container {
       grid,
     );
   }
+  setDevMode(enabled: boolean): void {
+    this.reelView.setDevMode(enabled);
+  }
+
   displayWinningPaylines(
     wins: WinResult[],
   ): void {
