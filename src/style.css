@@ -33,6 +33,25 @@ body {
   background-position: 0 0;
 }
 
+.presentation-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(99, 219, 232, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 219, 232, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(99, 219, 232, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 219, 232, 0.025) 1px, transparent 1px);
+  background-size:
+    100px 100px,
+    100px 100px,
+    50px 50px,
+    50px 50px;
+  background-position: 0 0;
+}
+
 .presentation-shell::after {
   content: '100 px  ·  50 px minor';
   position: absolute;

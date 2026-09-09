@@ -1,9 +1,15 @@
 import {
   Container,
   Graphics,
+  Sprite,
   Text,
+  Texture,
 } from 'pixi.js';
 import { gsap } from 'gsap';
+import {
+  CONTROL_DECK_FRONT_URL,
+  REEL_CABINET_FRONT_URL,
+} from '../assets/SymbolAssets';
 import type {
   ReelGrid,
   WinResult,
@@ -77,6 +83,27 @@ export class GameView extends Container {
     this.reelView.x = 180;
     this.reelView.y = 105;
     this.addChild(this.reelView);
+
+    // Cabinet front artwork is authored on the native 1000×800 game canvas,
+    // so it maps 1:1 to GameView coordinates and sits over the reels while
+    // remaining behind all HUD and player controls.
+    const reelCabinetFront = new Sprite(
+      Texture.from(REEL_CABINET_FRONT_URL),
+    );
+    reelCabinetFront.x = 0;
+    reelCabinetFront.y = 0;
+    this.addChild(reelCabinetFront);
+
+    // Control-deck artwork shares the native 1000×800 game canvas and sits
+    // above the reel cabinet art while remaining behind all functional HUD
+    // readouts, wager controls, and the SPIN control.
+    const controlDeckFront = new Sprite(
+      Texture.from(CONTROL_DECK_FRONT_URL),
+    );
+    controlDeckFront.x = 0;
+    controlDeckFront.y = 0;
+    this.addChild(controlDeckFront);
+
     this.nextSpinMultiplierText = new Text({
       text: '',
       style: {

@@ -15,6 +15,16 @@ export const SYMBOL_ASSET_URLS: Record<SymbolId, string> = {
   scatter: new URL('./symbols/scatter.png', import.meta.url).href,
 };
 
+export const REEL_CABINET_FRONT_URL =
+  new URL('./cabinet/reelCabinetFront.png', import.meta.url).href;
+
+export const CONTROL_DECK_FRONT_URL =
+  new URL('./cabinet/controlDeckFront.png', import.meta.url).href;
+
 export async function loadSymbolAssets(): Promise<void> {
-  await Assets.load(Object.values(SYMBOL_ASSET_URLS));
+  await Assets.load([
+    ...Object.values(SYMBOL_ASSET_URLS),
+    REEL_CABINET_FRONT_URL,
+    CONTROL_DECK_FRONT_URL,
+  ]);
 }
