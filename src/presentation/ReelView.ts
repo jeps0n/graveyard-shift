@@ -1,7 +1,9 @@
 import {
   Container,
   Graphics,
+  Sprite,
   Text,
+  Texture,
 } from 'pixi.js';
 import { gsap } from 'gsap';
 import type {
@@ -10,27 +12,20 @@ import type {
   WinResult,
 } from '../game/types';
 import { PAYLINES } from '../math/Paylines';
+import { SYMBOL_ASSET_URLS } from '../assets/SymbolAssets';
+import { SYMBOL_PRESENTATION } from './SymbolPresentation';
 const REEL_WIDTH = 120;
 const REEL_HEIGHT = 120;
 const GAP = 10;
-const SYMBOL_LABELS: Record<SymbolId, string> = {
-  coffee: 'COFFEE',
-  burger: 'BURGER',
-  gas: 'GAS',
-  chip: 'CHIP',
-  dice: 'DICE',
-  zed: 'ZED',
-  gary: 'GARY',
-  barkley: 'BARKLEY',
-  victor: 'VICTOR',
-  marge: 'MARGE',
-  scatter: 'MIDNIGHT',
-};
+const TILE_RADIUS = 8;
+const TILE_BORDER_WIDTH = 3;
+const WIN_PUNCH_SCALE = 1.07;
 interface TileVisual {
   readonly container: Container;
   readonly visual: Container;
   readonly cell: Graphics;
-  readonly label: Text;
+  readonly symbol: Sprite;
+  readonly frame: Graphics;
   readonly coordinate: Text;
 }
 const DEV_PAYLINE_COLORS = [
@@ -49,6 +44,7 @@ export class ReelView extends Container {
   private readonly gridLayer: Container;
   private readonly paylineLayer: Container;
   private readonly reelLayers: Container[] = [];
+  private readonly reelMasks: Graphics[] = [];
   private readonly reelSpinners: Container[] = [];
   private readonly reelTiles: TileVisual[][] = [];
   private readonly winningCells = new Map<string, Graphics>();
@@ -292,6 +288,21 @@ export class ReelView extends Container {
     if (wins.length === 0) {
       return;
     }
+    // Reel masks are required while symbols spin and cascade, but they would
+    // clip the win punch at the 120px reel boundary. During the settled win
+    // beat, temporarily release those masks so the 1.07x tile can breathe
+    // into the existing 10px gutters. Neighboring winners remain separated.
+    for (let reelIndex = 0; reelIndex < this.reelLayers.length; reelIndex++) {
+      const reelLayer = this.reelLayers[reelIndex];
+      const mask = this.reelMasks[reelIndex];
+      reelLayer.mask = null;
+      if (mask) {
+        // While detached from reelLayer.mask, the mask Graphics becomes a
+        // normal child and would render as a solid white rectangle. Hide it
+        // only for the unmasked win-punch beat.
+        mask.visible = false;
+      }
+    }
     const allTiles: TileVisual[] = [];
     for (const tiles of this.reelTiles) {
       allTiles.push(...tiles);
@@ -315,7 +326,7 @@ export class ReelView extends Container {
           const isActive = activePositions.has(`${reelIndex},${row}`);
           gsap.killTweensOf(tile.container);
           gsap.killTweensOf(tile.visual.scale);
-          tile.container.alpha = isActive ? 1 : 0.55;
+          tile.container.alpha = isActive ? 1 : 0.31;
           tile.visual.scale.set(1);
         }
       }
@@ -327,8 +338,8 @@ export class ReelView extends Container {
           (tile) =>
             new Promise<void>((resolve) => {
               gsap.to(tile.visual.scale, {
-                x: 1.1,
-                y: 1.1,
+                x: WIN_PUNCH_SCALE,
+                y: WIN_PUNCH_SCALE,
                 duration: punchDuration,
                 ease: 'power2.out',
                 onComplete: resolve,
@@ -359,6 +370,13 @@ export class ReelView extends Container {
       gsap.killTweensOf(tile.visual.scale);
       tile.container.alpha = 1;
       tile.visual.scale.set(1);
+    }
+    for (let reelIndex = 0; reelIndex < this.reelLayers.length; reelIndex++) {
+      const mask = this.reelMasks[reelIndex];
+      if (mask) {
+        mask.visible = true;
+      }
+      this.reelLayers[reelIndex].mask = mask ?? null;
     }
     // Brief final read with all DEV paylines still visible before the cascade.
     await new Promise<void>((resolve) => {
@@ -447,8 +465,7 @@ export class ReelView extends Container {
       row < tiles.length && row < symbols.length;
       row++
     ) {
-      tiles[row].label.text =
-        SYMBOL_LABELS[symbols[row]];
+      this.applySymbolPresentation(tiles[row], symbols[row]);
     }
   }
   private stopReelAnimation(): void {
@@ -458,14 +475,38 @@ export class ReelView extends Container {
       spinner.y = 0;
       spinner.scale.set(1);
     }
-    for (const reelLayer of this.reelLayers) {
+    for (let reelIndex = 0; reelIndex < this.reelLayers.length; reelIndex++) {
+      const reelLayer = this.reelLayers[reelIndex];
       reelLayer.alpha = 1;
+      reelLayer.mask = this.reelMasks[reelIndex] ?? null;
     }
     for (const cell of this.winningCells.values()) {
       gsap.killTweensOf(cell);
       cell.alpha = 1;
     }
   }
+  private applySymbolPresentation(
+    tile: TileVisual,
+    symbol: SymbolId,
+  ): void {
+    const presentation = SYMBOL_PRESENTATION[symbol];
+    tile.symbol.texture = Texture.from(SYMBOL_ASSET_URLS[symbol]);
+    tile.cell
+      .clear()
+      .roundRect(0, 0, REEL_WIDTH, REEL_HEIGHT, TILE_RADIUS)
+      .fill(presentation.background);
+    tile.frame
+      .clear()
+      .roundRect(
+        TILE_BORDER_WIDTH / 2,
+        TILE_BORDER_WIDTH / 2,
+        REEL_WIDTH - TILE_BORDER_WIDTH,
+        REEL_HEIGHT - TILE_BORDER_WIDTH,
+        TILE_RADIUS - 1,
+      )
+      .stroke({ width: TILE_BORDER_WIDTH, color: presentation.main });
+  }
+
   private createPlaceholderGrid(): void {
     const grid: ReelGrid = [
       ['coffee', 'burger', 'gas'],
@@ -478,6 +519,7 @@ export class ReelView extends Container {
   }
   private createGrid(grid: ReelGrid): void {
     this.reelLayers.length = 0;
+    this.reelMasks.length = 0;
     this.reelSpinners.length = 0;
     this.reelTiles.length = 0;
     this.winningCells.clear();
@@ -502,6 +544,7 @@ export class ReelView extends Container {
       reelLayer.addChild(reelSpinner);
       this.gridLayer.addChild(reelLayer);
       this.reelLayers.push(reelLayer);
+      this.reelMasks.push(mask);
       this.reelSpinners.push(reelSpinner);
       const tiles: TileVisual[] = [];
       for (
@@ -537,33 +580,52 @@ export class ReelView extends Container {
     tileVisual.pivot.set(REEL_WIDTH / 2, REEL_HEIGHT / 2);
     tileVisual.position.set(REEL_WIDTH / 2, REEL_HEIGHT / 2);
     tileContainer.addChild(tileVisual);
+    const presentation = SYMBOL_PRESENTATION[symbol];
     const cell = new Graphics()
       .roundRect(
         0,
         0,
         REEL_WIDTH,
         REEL_HEIGHT,
-        10,
+        TILE_RADIUS,
       )
-      .fill(0x20252c)
-      .stroke({
-        width: 2,
-        color: 0x555d68,
-      });
+      .fill(presentation.background);
     tileVisual.addChild(cell);
-    const label = new Text({
-      text: SYMBOL_LABELS[symbol],
-      style: {
-        fill: 0xffffff,
-        fontSize: 16,
-        fontWeight: 'bold',
-        align: 'center',
-      },
-    });
-    label.anchor.set(0.5);
-    label.x = REEL_WIDTH / 2;
-    label.y = REEL_HEIGHT / 2;
-    tileVisual.addChild(label);
+    const symbolSprite = new Sprite(
+      Texture.from(SYMBOL_ASSET_URLS[symbol]),
+    );
+    symbolSprite.anchor.set(0.5);
+    symbolSprite.position.set(
+      REEL_WIDTH / 2,
+      REEL_HEIGHT / 2,
+    );
+    symbolSprite.width = REEL_WIDTH;
+    symbolSprite.height = REEL_HEIGHT;
+    const symbolMask = new Graphics()
+      .roundRect(
+        0,
+        0,
+        REEL_WIDTH,
+        REEL_HEIGHT,
+        TILE_RADIUS,
+      )
+      .fill(0xffffff);
+    tileVisual.addChild(symbolMask);
+    symbolSprite.mask = symbolMask;
+    tileVisual.addChild(symbolSprite);
+    const frame = new Graphics()
+      .roundRect(
+        TILE_BORDER_WIDTH / 2,
+        TILE_BORDER_WIDTH / 2,
+        REEL_WIDTH - TILE_BORDER_WIDTH,
+        REEL_HEIGHT - TILE_BORDER_WIDTH,
+        TILE_RADIUS - 1,
+      )
+      .stroke({
+        width: TILE_BORDER_WIDTH,
+        color: presentation.main,
+      });
+    tileVisual.addChild(frame);
     const coordinate = new Text({
       text: `(${reel + 1},${row + 1})`,
       style: {
@@ -579,7 +641,8 @@ export class ReelView extends Container {
       container: tileContainer,
       visual: tileVisual,
       cell,
-      label,
+      symbol: symbolSprite,
+      frame,
       coordinate,
     };
   }

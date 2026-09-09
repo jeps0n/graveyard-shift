@@ -1,5 +1,6 @@
 import { Application } from 'pixi.js';
 import './style.css';
+import { loadSymbolAssets } from './assets/SymbolAssets';
 import { DevModeController } from './dev/DevModeController';
 import { Game } from './game/Game';
 import {
@@ -31,6 +32,7 @@ await app.init({
   antialias: true,
 });
 gameHost.appendChild(app.canvas);
+await loadSymbolAssets();
 const game = new Game(app, receiptHost);
 const devModeController = new DevModeController({
   rightPresentation,
