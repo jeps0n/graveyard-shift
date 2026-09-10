@@ -16,5 +16,5 @@ export const SYMBOL_PRESENTATION: Record<SymbolId, SymbolPresentation> = {
   gas: { main: 0xd65332, background: 0xf9e9e5 },
   chip: { main: 0xd94336, background: 0xfae7e5 },
   dice: { main: 0xe95b9d, background: 0xfbe8f1 },
-  scatter: { main: 0xe8c85a, background: 0xfaf6e3 },
+  scatter: { main: 0x8b5cf6, background: 0xfaf6e3 },
 };

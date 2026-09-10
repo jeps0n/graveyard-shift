@@ -32,7 +32,6 @@ body {
     50px 50px;
   background-position: 0 0;
 }
-
 .presentation-shell::before {
   content: '';
   position: absolute;
@@ -51,7 +50,6 @@ body {
     50px 50px;
   background-position: 0 0;
 }
-
 .presentation-shell::after {
   content: '100 px  ·  50 px minor';
   position: absolute;
@@ -67,7 +65,6 @@ body {
   pointer-events: none;
   user-select: none;
 }
-
 .presentation-side {
   position: relative;
   min-width: 0;
@@ -89,6 +86,141 @@ body {
   overflow: hidden;
   background: transparent;
 }
+/* Artwork blocking only. These layers never participate in layout, so the
+   playable game remains exactly centered in the original middle column. */
+.presentation-shell {
+  --side-region-width: 23.958333%;
+  --locals-bar-height: 13.5%;
+}
+.art-placeholder {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.72);
+  font: 700 14px/1.2 monospace;
+  letter-spacing: 0.08em;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+.art-placeholder--left {
+  position: absolute;
+  inset: 0;
+  background: rgba(41, 94, 101, 0.72);
+}
+.art-placeholder--locals {
+  position: absolute;
+  top: 0;
+  left: var(--side-region-width);
+  right: 0;
+  height: var(--locals-bar-height);
+  z-index: 2;
+  background: rgba(8, 55, 82, 0.78);
+}
+.locals-bar-trigger {
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.locals-bar-trigger:hover,
+.locals-bar-trigger:focus-visible {
+  background: rgba(11, 72, 105, 0.9);
+  outline: 2px solid rgba(99, 219, 232, 0.85);
+  outline-offset: -4px;
+}
+/* Temporary interaction proof for Meet the Locals. This is an overlay only:
+   opening it never participates in layout and never moves the playable game. */
+.locals-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 48px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.76);
+}
+.locals-backdrop[hidden] {
+  display: none;
+}
+.locals-panel {
+  width: min(1180px, 90vw);
+  max-height: 82vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 3px dashed rgba(255, 255, 255, 0.65);
+  background: #20242a;
+  color: #f4f5f6;
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.65);
+}
+.locals-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 18px;
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.35);
+  background: #15191f;
+}
+.locals-panel__title {
+  margin: 0;
+  font: 700 16px/1 monospace;
+  letter-spacing: 0.12em;
+}
+.locals-panel__close {
+  min-width: 96px;
+  height: 36px;
+  border: 1px solid #737c87;
+  border-radius: 4px;
+  background: #2b3139;
+  color: #f4f5f6;
+  font: 700 11px/1 monospace;
+  cursor: pointer;
+}
+/* Image stage: the panel owns the geometry; the artwork fits inside it. */
+.locals-panel__body {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #303740;
+}
+.locals-panel__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+}
+.art-placeholder--right {
+  position: absolute;
+  top: var(--locals-bar-height);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(75, 35, 46, 0.76);
+}
+.presentation-side--left,
+.game-host,
+.presentation-side--right {
+  z-index: 1;
+}
+/* In portfolio mode the Locals Bar visually spans the center + right areas.
+   Dev mode owns the entire right region and simply obscures that portion of
+   the unchanged Locals Bar. Nothing is resized or reflowed. */
+.presentation-side--right[data-mode='dev'] {
+  z-index: 3;
+}
+.presentation-side--right[data-mode='dev'] .art-placeholder--right {
+  visibility: hidden;
+}
 canvas {
   display: block;
 }
@@ -98,9 +230,11 @@ canvas {
   .presentation-shell {
     grid-template-columns: 0 minmax(0, 1fr) 0;
   }
-
   .presentation-side {
     visibility: hidden;
+  }
+  .art-placeholder--locals {
+    display: none;
   }
 }
 .dev-console {
