@@ -72,6 +72,16 @@ export class AfterMidnightView extends Container {
         .fill(0xffffff);
       panel.addChild(panelMask);
       panelBackdrop.mask = panelMask;
+      // Reveal wash sits above the illustrated backdrop but below the modal
+      // frame and choice cards. It stays invisible until the player picks.
+      const revealWash = new Graphics()
+        .roundRect(-320, -205, 640, 410, 24)
+        .fill({
+          color: 0x100817,
+          alpha: 1,
+        });
+      revealWash.alpha = 0;
+      panel.addChild(revealWash);
       // Modal frame.
       const panelFrame = new Graphics()
         .roundRect(-320, -205, 640, 410, 24)
@@ -81,7 +91,7 @@ export class AfterMidnightView extends Container {
         });
       panel.addChild(panelFrame);
       panel.x = 500;
-      panel.y = 295;
+      panel.y = 289;
       panel.scale.set(0.96);
       overlay.addChild(panel);
       // ─────────────────────────────────────────────
@@ -138,6 +148,8 @@ export class AfterMidnightView extends Container {
           label: Text;
           multiplier: Text;
           artwork: Sprite;
+          textPlate: Graphics;
+          revealCard: Graphics;
         }
       >();
       let selected = false;
@@ -179,6 +191,35 @@ export class AfterMidnightView extends Container {
             color: 0xffffff,
           });
         card.addChild(button);
+        // Full reveal card stays hidden during the initial pick state. After the
+        // backdrop falls away, it fades in to visually complete each choice before
+        // the cards flip to their multiplier faces.
+        const revealCard = new Graphics()
+          .roundRect(-80, -70, 160, 140, 16)
+          .fill({
+            color: 0x12091b,
+            alpha: 0.96,
+          })
+          .stroke({
+            width: 2,
+            color: 0x6a24a8,
+            alpha: 0.88,
+          });
+        revealCard.alpha = 0;
+        card.addChild(revealCard);
+        // Readability plate keeps labels/multipliers legible over the busy backdrop.
+        const textPlate = new Graphics()
+          .roundRect(-62, 6, 124, 62, 10)
+          .fill({
+            color: 0x09070f,
+            alpha: 0.72,
+          })
+          .stroke({
+            width: 1,
+            color: 0x6a24a8,
+            alpha: 0.55,
+          });
+        card.addChild(textPlate);
         // ─────────────────────────────────────────────
         // Choice Artwork
         // ─────────────────────────────────────────────
@@ -281,8 +322,9 @@ export class AfterMidnightView extends Container {
         // ─────────────────────────────────────────────
         // Selection / Multiplier Reveal
         // ─────────────────────────────────────────────
-        // Selection locks the feature, emphasizes the chosen outcome,
-        // then reveals all three multipliers before resolving the bonus.
+        // Selection locks the feature, lets the illustrated world fall away,
+        // completes all three programmatic cards, then flips the chosen card
+        // first before the two passive reveals.
         button.on('pointertap', () => {
           if (selected) {
             return;
@@ -293,47 +335,50 @@ export class AfterMidnightView extends Container {
           if (!selectedCard) {
             return;
           }
-          // De-emphasize unselected choices while keeping their outcomes
-          // visible for transparency after the player's selection.
-          cards.forEach((other, otherChoice) => {
+
+          cards.forEach((other) => {
             other.button.eventMode = 'none';
             other.button.cursor = 'default';
-            if (otherChoice === choice) {
-              return;
-            }
-            gsap.to(other.container, {
-              alpha: 0.48,
-              scale: 0.94,
-              duration: 0.22,
+            other.artwork.filters = null;
+          });
+
+          // Immediate acknowledgement: the chosen card answers the click, then
+          // settles before the slower transition into the reveal stage.
+          gsap.timeline()
+            .to(selectedCard.container.scale, {
+              x: 1.08,
+              y: 1.08,
+              duration: 0.12,
               ease: 'power2.out',
+            })
+            .to(selectedCard.container.scale, {
+              x: 1,
+              y: 1,
+              duration: 0.14,
+              ease: 'power2.inOut',
             });
-          });
-          subtitle.text = 'YOUR NEXT SPIN MULTIPLIER';
-          footer.text = 'REVEALING ALL THREE OUTCOMES…';
-          gsap.to(selectedCard.container.scale, {
-            x: 1.08,
-            y: 1.08,
-            duration: 0.18,
-            ease: 'back.out(1.7)',
-          });
-          // Reveal sequence is intentionally staged:
-          // selected result first, remaining outcomes second.
+
+          // subtitle.text = 'YOUR NEXT SPIN MULTIPLIER';
+          // footer.text = 'THE NIGHT GOES QUIET…';
+
           const revealTimeline = gsap.timeline({
             onComplete: () => {
-              footer.text = 'ONE SPIN ONLY. MAKE IT COUNT.';
-              // Return control to the game only after the full reveal completes.
+              // footer.text = 'ONE SPIN ONLY. MAKE IT COUNT.';
               gsap.to(overlay, {
                 alpha: 0,
-                delay: 0.7,
-                duration: 0.28,
+                delay: 1.2,
+                duration: 0.3,
                 ease: 'power2.in',
                 onComplete: () => {
                   cards.forEach((card) => {
                     gsap.killTweensOf(card.artwork);
                     gsap.killTweensOf(card.container);
                     gsap.killTweensOf(card.multiplier.scale);
+                    gsap.killTweensOf(card.revealCard);
                   });
                   gsap.killTweensOf(panel.scale);
+                  gsap.killTweensOf(panelBackdrop);
+                  gsap.killTweensOf(revealWash);
                   gsap.killTweensOf(overlay);
                   overlay.destroy({ children: true });
                   resolve(selectedMultiplier);
@@ -341,20 +386,102 @@ export class AfterMidnightView extends Container {
               });
             },
           });
+
+          // Beat 1: slowly let the illustrated feature artwork disappear into a
+          // purple-black void. The items remain visible while the world falls away.
           revealTimeline
-            .to(selectedCard.multiplier.scale, {
-              x: 0,
-              duration: 0.14,
+            .to(revealWash, {
+              alpha: 0.96,
+              duration: 1.05,
+              ease: 'power1.inOut',
+            }, 0)
+            .to(panelBackdrop, {
+              alpha: 0.08,
+              duration: 1.05,
+              ease: 'power1.inOut',
+            }, 0);
+
+          // Beat 2: complete all three cards only after the wash is nearly settled.
+          // The original lower text plates disappear as the full card faces arrive.
+          cards.forEach((card) => {
+            revealTimeline
+              .to(card.revealCard, {
+                alpha: 1,
+                duration: 0.28,
+                ease: 'power2.out',
+              }, 0.82)
+              .to(card.textPlate, {
+                alpha: 0,
+                duration: 0.2,
+                ease: 'power1.out',
+              }, 0.82);
+          });
+
+          revealTimeline.call(() => {
+            // footer.text = 'TURN IT OVER.';
+          }, [], 1.18);
+
+          // Small tension beat before the chosen card flips.
+          revealTimeline.to({}, { duration: 0.2 });
+
+          // Beat 3: chosen card flips first. Collapse to its edge, swap the face,
+          // then open back up with the selected multiplier treated as the hero result.
+          revealTimeline
+            .to(selectedCard.container.scale, {
+              x: 0.04,
+              y: 1.03,
+              duration: 0.18,
               ease: 'power2.in',
             })
             .call(() => {
+              gsap.killTweensOf(selectedCard.artwork);
+              selectedCard.artwork.visible = false;
+              selectedCard.label.visible = false;
+              selectedCard.multiplier.style.fontSize = 64;
               selectedCard.multiplier.text = `×${selectedMultiplier}`;
+              selectedCard.multiplier.scale.set(1);
+              selectedCard.revealCard.clear()
+                .roundRect(-80, -70, 160, 140, 16)
+                .fill({
+                  color: 0x16091f,
+                  alpha: 0.98,
+                })
+                .stroke({
+                  width: 3,
+                  color: 0xb829ff,
+                  alpha: 1,
+                });
+            })
+            .to(selectedCard.container.scale, {
+              x: 1.1,
+              y: 1.1,
+              duration: 0.24,
+              ease: 'back.out(2)',
+            })
+            .to(selectedCard.container.scale, {
+              x: 1.04,
+              y: 1.04,
+              duration: 0.14,
+              ease: 'power2.out',
             })
             .to(selectedCard.multiplier.scale, {
+              x: 1.18,
+              y: 1.18,
+              duration: 0.12,
+              ease: 'power2.out',
+            }, '<')
+            .to(selectedCard.multiplier.scale, {
               x: 1,
-              duration: 0.22,
-              ease: 'back.out(2.2)',
+              y: 1,
+              duration: 0.16,
+              ease: 'back.out(1.8)',
             });
+
+          revealTimeline.call(() => {
+            // footer.text = 'THE OTHER TWO…';
+          }, [], '+=0.24');
+
+          // Beat 4: the remaining cards reveal passively, one after the other.
           choices.forEach((otherChoice) => {
             if (otherChoice === choice) {
               return;
@@ -365,24 +492,139 @@ export class AfterMidnightView extends Container {
             }
             const otherMultiplier = resolveChoice(otherChoice);
             revealTimeline
-              .to(
-                other.multiplier.scale,
-                {
-                  x: 0,
-                  duration: 0.12,
-                  ease: 'power2.in',
-                },
-                '+=0.22',
-              )
+              .to(other.container.scale, {
+                x: 0.04,
+                y: 0.96,
+                duration: 0.15,
+                ease: 'power2.in',
+              }, '+=0.12')
               .call(() => {
+                gsap.killTweensOf(other.artwork);
+                other.artwork.visible = false;
+                other.label.visible = false;
+                other.multiplier.style.fontSize = 36;
+                other.multiplier.style.fill = 0xffffff;
                 other.multiplier.text = `×${otherMultiplier}`;
+                other.multiplier.scale.set(1);
+                other.revealCard.clear()
+                  .roundRect(-80, -70, 160, 140, 16)
+                  .fill({
+                    color: 0x100817,
+                    alpha: 0.96,
+                  })
+                  .stroke({
+                    width: 2,
+                    color: 0xffffff,
+                    alpha: 1,
+                  });
               })
-              .to(other.multiplier.scale, {
-                x: 0.9,
+              .to(other.container.scale, {
+                x: 0.96,
+                y: 0.96,
                 duration: 0.2,
                 ease: 'back.out(1.5)',
               });
           });
+
+          // Beat 5: settle the three revealed outcomes into their final hierarchy.
+          // Passive cards recede while the selected result remains fully readable.
+          // No extra pulse is used here; the winning multiplier now transitions
+          // directly into the final takeover beat.
+          revealTimeline.call(() => {
+            cards.forEach((card, cardChoice) => {
+              card.container.alpha = cardChoice === choice ? 1 : 0.5;
+            });
+            footer.text = `×${selectedMultiplier} LOCKED IN`;
+          });
+
+          // Beat 6: the winning multiplier takes over the selected card face.
+          // After a short confirmation beat, it moves to the center and grows
+          // to its full-card resting size, overshoots slightly for one final hit,
+          // then settles back into the exact size that carries into the next spin.
+          revealTimeline
+            .call(() => {
+              // footer.text = `×${selectedMultiplier} ACTIVE NEXT SPIN`;
+            }, [], '+=0.16')
+            .to(selectedCard.multiplier, {
+              y: 0,
+              duration: 0.2,
+              ease: 'power2.out',
+            })
+            .to(
+              selectedCard.multiplier.scale,
+              {
+                x: 1.45,
+                y: 1.45,
+                duration: 0.24,
+                ease: 'power2.out',
+              },
+              '<',
+            )
+            .to(selectedCard.multiplier.scale, {
+              x: 1.70,
+              y: 1.70,
+              duration: 0.13,
+              ease: 'power2.out',
+            })
+            .to(selectedCard.multiplier.scale, {
+              x: 1.45,
+              y: 1.45,
+              duration: 0.20,
+              ease: 'back.out(1.4)',
+            })
+            .to(selectedCard.container.scale, {
+              x: 1.04,
+              y: 1.04,
+              duration: 0.12,
+              ease: 'power2.out',
+            });
+
+          // Beat 7: bookend the feature with a final confirmation wipe across
+          // only the winning card. The passive cards and modal background stay
+          // untouched so the wipe reads as a stamp on the selected multiplier.
+          revealTimeline
+            .call(() => {
+              const winningCardWipe = new Graphics()
+                .poly([
+                  -18, -90,
+                  12, -90,
+                  48, 90,
+                  18, 90,
+                ])
+                .fill({
+                  color: 0xe8dfff,
+                  alpha: 0.82,
+                });
+
+              // Use a dedicated invisible mask for the wipe instead of the
+              // winning card itself. This keeps the selected card's purple
+              // reveal border completely independent from the wipe effect.
+              const winningCardWipeMask = new Graphics()
+                .roundRect(-80, -70, 160, 140, 16)
+                .fill(0xffffff);
+
+              selectedCard.container.addChild(winningCardWipeMask);
+
+              winningCardWipe.x = -150;
+              winningCardWipe.mask = winningCardWipeMask;
+              selectedCard.container.addChild(winningCardWipe);
+
+              gsap.to(winningCardWipe, {
+                x: 150,
+                duration: 0.34,
+                ease: 'power2.inOut',
+                onComplete: () => {
+                  winningCardWipe.mask = null;
+                  winningCardWipe.destroy();
+                  winningCardWipeMask.destroy();
+                },
+              });
+            })
+            // Keep the reveal timeline alive long enough for the card-only wipe
+            // to finish before the final hold and modal exit begin.
+            .to({}, {
+              duration: 0.34,
+            });
         });
         cards.set(choice, {
           container: card,
@@ -390,6 +632,8 @@ export class AfterMidnightView extends Container {
           label,
           multiplier,
           artwork,
+          textPlate,
+          revealCard,
         });
         overlay.addChild(card);
       });
@@ -398,19 +642,29 @@ export class AfterMidnightView extends Container {
       // ─────────────────────────────────────────────
       this.addChild(overlay);
       overlay.alpha = 0;
+      // Opening wipe is an exact 4× scale of the winning-card wipe.
+      // The modal is 640px wide and the card is 160px wide, so scaling the
+      // card wipe geometry by 4 preserves the same width ratio, diagonal angle,
+      // direction, and overall visual language at the larger surface size.
       const panelWipe = new Graphics()
         .poly([
-          -15.5, -260,
-          15.5, -260,
-          55.5, 260,
-          24.5, 260,
+          -72, -360,
+          48, -360,
+          192, 360,
+          72, 360,
         ])
-        .fill(0xd9dde3);
+        .fill({
+          color: 0xe8dfff,
+          alpha: 0.82,
+        });
       panel.addChild(panelWipe);
       panelWipe.mask = panelMask;
       panel.alpha = 0;
       panel.scale.set(0.96);
-      panelWipe.x = -450;
+      // Match the winning-card wipe travel distance proportionally:
+      // 300px across a 160px card = 1.875 surface widths.
+      // 1.875 × 640px modal = 1200px total travel, centered from -600 to 600.
+      panelWipe.x = -600;
       gsap.to(overlay, {
         alpha: 1,
         duration: 0.18,
@@ -422,8 +676,11 @@ export class AfterMidnightView extends Container {
         ease: 'power2.out',
       });
       gsap.to(panelWipe, {
-        x: 450,
-        duration: 0.36,
+        x: 600,
+        // Same duration and easing as the winning-card wipe. Because the
+        // travel distance is also normalized to surface width, perceived speed
+        // now matches at both scales.
+        duration: 0.34,
         delay: 0.08,
         ease: 'power2.inOut',
         onComplete: () => {

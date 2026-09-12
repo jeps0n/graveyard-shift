@@ -81,7 +81,7 @@ export class GameView extends Container {
     this.addChild(reelFrame);
     this.reelView = new ReelView();
     this.reelView.x = 180;
-    this.reelView.y = 99;
+    this.reelView.y = 100;
     this.addChild(this.reelView);
     // Upper cabinet artwork.
     const reelCabinetFront = this.createReelCabinetArtwork(
@@ -95,14 +95,19 @@ export class GameView extends Container {
     this.nextSpinMultiplierText = new Text({
       text: '',
       style: {
-        fill: 0xf2c46d,
-        fontSize: 14,
+        fill: 0xb829ff,
+        stroke: {
+          color: 0x120018,
+          width: 4,
+        },
+        fontSize: 16,
         fontWeight: 'bold',
+        letterSpacing: 1.5,
       },
     });
     this.nextSpinMultiplierText.anchor.set(0.5);
     this.nextSpinMultiplierText.x = 500;
-    this.nextSpinMultiplierText.y = 20;
+    this.nextSpinMultiplierText.y = 22;
     this.nextSpinMultiplierText.visible = false;
     this.addChild(this.nextSpinMultiplierText);
     // Bonus presentation is isolated from the base-game view and is
@@ -116,12 +121,17 @@ export class GameView extends Container {
       text: 'BALANCE',
       style: {
         fill: 0xf2c46d,
+        stroke: {
+          color: 0x1a1208,
+          width: 1,
+        },
         fontSize: 12,
         fontWeight: 'bold',
+        letterSpacing: 1.5,
       },
     });
     balanceLabel.anchor.set(0.5);
-    balanceLabel.x = 260;
+    balanceLabel.x = 262;
     balanceLabel.y = 546;
     this.addChild(balanceLabel);
     this.balanceLabel = balanceLabel;
@@ -134,19 +144,24 @@ export class GameView extends Container {
       },
     });
     this.balanceText.anchor.set(0.5);
-    this.balanceText.x = 260;
+    this.balanceText.x = 262;
     this.balanceText.y = 569;
     this.addChild(this.balanceText);
     const wagerLabel = new Text({
       text: 'WAGER',
       style: {
         fill: 0xf2c46d,
+        stroke: {
+          color: 0x1a1208,
+          width: 1,
+        },
         fontSize: 12,
         fontWeight: 'bold',
+        letterSpacing: 1.5,
       },
     });
     wagerLabel.anchor.set(0.5);
-    wagerLabel.x = 500;
+    wagerLabel.x = 502;
     wagerLabel.y = 546;
     this.addChild(wagerLabel);
     this.wagerLabel = wagerLabel;
@@ -159,19 +174,24 @@ export class GameView extends Container {
       },
     });
     this.betText.anchor.set(0.5);
-    this.betText.x = 500;
+    this.betText.x = 502;
     this.betText.y = 569;
     this.addChild(this.betText);
     const winLabel = new Text({
       text: 'WIN',
       style: {
         fill: 0xf2c46d,
+        stroke: {
+          color: 0x1a1208,
+          width: 1,
+        },
         fontSize: 12,
         fontWeight: 'bold',
+        letterSpacing: 1.5,
       },
     });
     winLabel.anchor.set(0.5);
-    winLabel.x = 740;
+    winLabel.x = 742;
     winLabel.y = 546;
     this.addChild(winLabel);
     this.winLabel = winLabel;
@@ -184,15 +204,20 @@ export class GameView extends Container {
       },
     });
     this.winText.anchor.set(0.5);
-    this.winText.x = 740;
+    this.winText.x = 742;
     this.winText.y = 569;
     this.addChild(this.winText);
     const betIncrementText = new Text({
       text: 'BET INCREMENT',
       style: {
         fill: 0xf2c46d,
+        stroke: {
+          color: 0x1a1208,
+          width: 1,
+        },
         fontSize: 12,
         fontWeight: 'bold',
+        letterSpacing: 1.5,
       },
     });
     betIncrementText.anchor.set(0.5);
@@ -339,19 +364,19 @@ export class GameView extends Container {
     framing.addChild(
       // NEXT SPIN MULTIPLIER
       createRecess(
-        385,
+        356,
         5,
-        230,
-        30,
+        288,
+        32,
         10,
         this.nextSpinMultiplierRecess,
       ),
       // BALANCE
-      createRecess(190, 533, 140, 54, 10),
+      createRecess(186, 533, 152, 54, 10),
       // WAGER
-      createRecess(430, 533, 140, 54, 10),
+      createRecess(426, 533, 152, 54, 10),
       // WIN
-      createRecess(670, 533, 140, 54, 10),
+      createRecess(666, 533, 152, 54, 10),
       // BET INCREMENT
       createRecess(325, 608, 350, 112, 14),
       // SPIN
@@ -722,14 +747,48 @@ export class GameView extends Container {
     this.spinButton.alpha = alpha;
     this.spinText.alpha = alpha;
   }
-  setNextSpinMultiplier(multiplier: number): void {
-    this.nextSpinMultiplierRecess.visible = multiplier > 1;
-    this.nextSpinMultiplierText.visible = multiplier > 1;
+setNextSpinMultiplier(multiplier: number): void {
+  this.nextSpinMultiplierRecess.visible = multiplier > 1;
+  this.nextSpinMultiplierText.visible = multiplier > 1;
 
-    this.nextSpinMultiplierText.text = multiplier > 1
-      ? `×${multiplier} ACTIVE · NEXT LIVE SPIN`
-      : '';
+  this.nextSpinMultiplierText.text = multiplier > 1
+    ? `×${multiplier} ACTIVE · NEXT LIVE SPIN`
+    : '';
+
+  if (multiplier > 1) {
+    gsap.killTweensOf(this.nextSpinMultiplierText.scale);
+    gsap.killTweensOf(this.nextSpinMultiplierRecess.scale);
+
+    this.nextSpinMultiplierText.scale.set(1);
+    this.nextSpinMultiplierRecess.scale.set(1);
+
+    gsap.timeline()
+      .to(
+        [
+          this.nextSpinMultiplierText.scale,
+          this.nextSpinMultiplierRecess.scale,
+        ],
+        {
+          x: 1.12,
+          y: 1.12,
+          duration: 0.14,
+          ease: 'power2.out',
+        },
+      )
+      .to(
+        [
+          this.nextSpinMultiplierText.scale,
+          this.nextSpinMultiplierRecess.scale,
+        ],
+        {
+          x: 1,
+          y: 1,
+          duration: 0.18,
+          ease: 'back.out(2)',
+        },
+      );
   }
+}
   // ─────────────────────────────────────────────
   // AFTER MIDNIGHT Feature Delegation
   // ─────────────────────────────────────────────

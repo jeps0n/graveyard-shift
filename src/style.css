@@ -95,7 +95,6 @@ body {
    playable game remains exactly centered in the original middle column. */
 .presentation-shell {
   --side-region-width: 23.958333%;
-  --locals-bar-height: 10.5%;
 }
 .art-placeholder {
   box-sizing: border-box;
@@ -126,11 +125,14 @@ body {
 .art-placeholder--locals {
   position: absolute;
   top: 0;
-  left: var(--side-region-width);
+  left: 0;
   right: 0;
-  height: var(--locals-bar-height);
   z-index: 2;
-  background: rgba(8, 55, 82, 0.78);
+  background: rgba(0, 0, 0, 1);
+  color: #c5aa72;
+  border: 2px solid #8f7650;
+  font-size: 20px;
+  font-weight: 700;
 }
 .locals-bar-trigger {
   margin: 0;
@@ -141,33 +143,34 @@ body {
 }
 .locals-bar-trigger:hover,
 .locals-bar-trigger:focus-visible {
-  background: rgba(11, 72, 105, 0.9);
-  outline: 2px solid rgba(99, 219, 232, 0.85);
-  outline-offset: -4px;
+  background: #1f1910;
+  color: #d8c28f;
+  border-color: #c5aa72;
 }
-/* Temporary interaction proof for Meet the Locals. This is an overlay only:
-   opening it never participates in layout and never moves the playable game. */
 .locals-backdrop {
   position: absolute;
   inset: 0;
   z-index: 10000;
+
   display: grid;
   place-items: center;
-  padding: 48px;
+
+  padding: clamp(12px, 3vw, 48px);
   box-sizing: border-box;
+
   background: rgba(0, 0, 0, 0.76);
 }
 .locals-backdrop[hidden] {
   display: none;
 }
 .locals-panel {
-  width: min(1180px, 90vw);
+  width: min(1180px, 100%);
   max-height: 82vh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
-  border: 3px dashed rgba(255, 255, 255, 0.65);
-  background: #20242a;
+  border: 2px solid #8f7650;
+  background: #000000;
   color: #f4f5f6;
   box-shadow: 0 18px 70px rgba(0, 0, 0, 0.65);
 }
@@ -177,23 +180,29 @@ body {
   justify-content: space-between;
   gap: 24px;
   padding: 14px 18px;
-  border-bottom: 2px dashed rgba(255, 255, 255, 0.35);
-  background: #15191f;
+  border-bottom: 2px solid #8f7650;
+  background: #1f1910;
 }
 .locals-panel__title {
   margin: 0;
-  font: 700 16px/1 monospace;
+  font: 700 24px/1 monospace;
   letter-spacing: 0.12em;
+  color: #c5aa72;
 }
 .locals-panel__close {
   min-width: 96px;
   height: 36px;
-  border: 1px solid #737c87;
+  border: 2px solid #8f7650;
   border-radius: 4px;
-  background: #2b3139;
+  background: #14110c;
   color: #f4f5f6;
   font: 700 11px/1 monospace;
   cursor: pointer;
+}
+.locals-panel__close:hover {
+  background: #211b11;
+  border-color: #c5aa72;
+  color: #ffffff;
 }
 /* Image stage: the panel owns the geometry; the artwork fits inside it. */
 .locals-panel__body {
@@ -203,7 +212,7 @@ body {
   padding: 16px;
   box-sizing: border-box;
   overflow: hidden;
-  background: #303740;
+  background: #000000;
 }
 .locals-panel__image {
   display: block;
@@ -214,7 +223,7 @@ body {
 }
 .art-placeholder--right {
   position: absolute;
-  top: var(--locals-bar-height);
+  top: 0;
   right: 0;
   bottom: 0;
   left: 0;
@@ -225,9 +234,9 @@ body {
 .presentation-side--right {
   z-index: 1;
 }
-/* In portfolio mode the Locals Bar visually spans the center + right areas.
-   Dev mode owns the entire right region and simply obscures that portion of
-   the unchanged Locals Bar. Nothing is resized or reflowed. */
+/* Dev mode owns the right region independently. The Locals Bar now lives
+   inside game-host and follows the same responsive cabinet-edge geometry as
+   the footer, so the side region no longer participates in its sizing. */
 .presentation-side--right[data-mode='dev'] {
   z-index: 3;
 }
@@ -245,9 +254,6 @@ canvas {
   }
   .presentation-side {
     visibility: hidden;
-  }
-  .art-placeholder--locals {
-    display: none;
   }
 }
 .dev-console {

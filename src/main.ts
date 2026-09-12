@@ -22,7 +22,6 @@ gameHost.className = 'game-host';
 const footerArtworkPlaceholder = document.createElement('div');
 footerArtworkPlaceholder.className = 'art-placeholder art-placeholder--footer';
 footerArtworkPlaceholder.textContent = 'FOOTER ARTWORK';
-gameHost.appendChild(footerArtworkPlaceholder);
 const rightPresentation = document.createElement('aside');
 rightPresentation.className = 'presentation-side presentation-side--right';
 rightPresentation.dataset.mode = 'portfolio';
@@ -33,9 +32,10 @@ rightPresentation.appendChild(rightArtworkPlaceholder);
 const localsBarPlaceholder = document.createElement('button');
 localsBarPlaceholder.className = 'art-placeholder art-placeholder--locals locals-bar-trigger';
 localsBarPlaceholder.type = 'button';
-localsBarPlaceholder.textContent = 'LOCALS BAR';
+localsBarPlaceholder.textContent = 'Meet the DEAD END Locals';
 localsBarPlaceholder.setAttribute('aria-haspopup', 'dialog');
 localsBarPlaceholder.setAttribute('aria-expanded', 'false');
+gameHost.append(localsBarPlaceholder, footerArtworkPlaceholder);
 const localsBackdrop = document.createElement('div');
 localsBackdrop.className = 'locals-backdrop';
 localsBackdrop.hidden = true;
@@ -53,7 +53,7 @@ localsPanelTitle.textContent = 'MEET THE LOCALS';
 const localsCloseButton = document.createElement('button');
 localsCloseButton.className = 'locals-panel__close';
 localsCloseButton.type = 'button';
-localsCloseButton.textContent = 'CLOSE ×';
+localsCloseButton.textContent = 'CLOSE';
 localsCloseButton.setAttribute('aria-label', 'Close Meet the Locals');
 const localsPanelBody = document.createElement('div');
 localsPanelBody.className = 'locals-panel__body';
@@ -89,7 +89,6 @@ shell.append(
   leftPresentation,
   gameHost,
   rightPresentation,
-  localsBarPlaceholder,
   localsBackdrop,
 );
 document.body.appendChild(shell);
@@ -145,9 +144,18 @@ function resizeGame(): void {
     height / 2 -
     REEL_GRID_CENTER_Y * scale +
     GAME_VISUAL_Y_OFFSET;
-  // Keep the HTML footer locked directly to the rendered bottom edge of
-  // the 1000×800 GameView so no game-host background can show between them.
+  // Lock the HTML artwork bars directly to the rendered GameView edges.
+  // Both bars live inside gameHost, so they always share the cabinet width
+  // and respond to resizing with the exact same geometry.
+  const gameTop = game.view.y;
   const gameBottom = game.view.y + GAME_HEIGHT * scale;
+
+  // LOCALS BAR fills only the space above the rendered cabinet and stays
+  // flush against its top edge, mirroring the footer behavior below.
+  localsBarPlaceholder.style.top = '0';
+  localsBarPlaceholder.style.height = `${Math.max(0, Math.ceil(gameTop) + 1)}px`;
+
+  // FOOTER ARTWORK fills only the space below the rendered cabinet.
   footerArtworkPlaceholder.style.top = `${Math.floor(gameBottom) - 1}px`;
   footerArtworkPlaceholder.style.bottom = '0';
 }
