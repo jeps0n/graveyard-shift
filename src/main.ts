@@ -19,9 +19,30 @@ leftArtworkPlaceholder.textContent = 'LEFT ARTWORK / WORLD BUILDING';
 leftPresentation.appendChild(leftArtworkPlaceholder);
 const gameHost = document.createElement('section');
 gameHost.className = 'game-host';
-const footerArtworkPlaceholder = document.createElement('div');
-footerArtworkPlaceholder.className = 'art-placeholder art-placeholder--footer';
-footerArtworkPlaceholder.textContent = 'FOOTER ARTWORK';
+const footerArtworkPlaceholder = document.createElement('footer');
+footerArtworkPlaceholder.className = 'portfolio-footer';
+footerArtworkPlaceholder.setAttribute('aria-label', 'Technical demonstration details');
+
+const footerLabel = document.createElement('span');
+footerLabel.className = 'portfolio-footer__label';
+footerLabel.textContent = 'TECHNICAL DEMONSTRATION BY';
+
+const footerName = document.createElement('span');
+footerName.className = 'portfolio-footer__name';
+footerName.textContent = 'jeff samson';
+
+const footerDivider = document.createElement('span');
+footerDivider.className = 'portfolio-footer__divider';
+footerDivider.setAttribute('aria-hidden', 'true');
+
+const footerTech = document.createElement('span');
+footerTech.className = 'portfolio-footer__tech';
+footerTech.textContent = 'VITE · TYPESCRIPT · PIXIJS · GSAP';
+
+const footerContent = document.createElement('div');
+footerContent.className = 'portfolio-footer__content';
+footerContent.append(footerLabel, footerName, footerDivider, footerTech);
+footerArtworkPlaceholder.appendChild(footerContent);
 const rightPresentation = document.createElement('aside');
 rightPresentation.className = 'presentation-side presentation-side--right';
 rightPresentation.dataset.mode = 'portfolio';
@@ -32,7 +53,34 @@ rightPresentation.appendChild(rightArtworkPlaceholder);
 const localsBarPlaceholder = document.createElement('button');
 localsBarPlaceholder.className = 'art-placeholder art-placeholder--locals locals-bar-trigger';
 localsBarPlaceholder.type = 'button';
-localsBarPlaceholder.textContent = 'Meet the DEAD END Locals';
+const localsBarContent = document.createElement('span');
+localsBarContent.className = 'locals-bar-trigger__content';
+const localsBarPrefix = document.createElement('span');
+localsBarPrefix.textContent = 'Meet the';
+
+const localsBarSpace1 = document.createElement('span');
+localsBarSpace1.setAttribute('aria-hidden', 'true');
+localsBarSpace1.textContent = '\u00A0';
+
+const localsBarEmphasis = document.createElement('span');
+localsBarEmphasis.className = 'locals-bar-trigger__emphasis';
+localsBarEmphasis.textContent = 'Dead End';
+
+const localsBarSpace2 = document.createElement('span');
+localsBarSpace2.setAttribute('aria-hidden', 'true');
+localsBarSpace2.textContent = '\u00A0';
+
+const localsBarSuffix = document.createElement('span');
+localsBarSuffix.textContent = 'Locals';
+
+localsBarContent.append(
+  localsBarPrefix,
+  localsBarSpace1,
+  localsBarEmphasis,
+  localsBarSpace2,
+  localsBarSuffix,
+);
+localsBarPlaceholder.appendChild(localsBarContent);
 localsBarPlaceholder.setAttribute('aria-haspopup', 'dialog');
 localsBarPlaceholder.setAttribute('aria-expanded', 'false');
 gameHost.append(localsBarPlaceholder, footerArtworkPlaceholder);
@@ -49,7 +97,7 @@ localsPanelHeader.className = 'locals-panel__header';
 const localsPanelTitle = document.createElement('h2');
 localsPanelTitle.id = 'locals-panel-title';
 localsPanelTitle.className = 'locals-panel__title';
-localsPanelTitle.textContent = 'MEET THE LOCALS';
+localsPanelTitle.textContent = 'The locals found at the Dead End...';
 const localsCloseButton = document.createElement('button');
 localsCloseButton.className = 'locals-panel__close';
 localsCloseButton.type = 'button';
@@ -107,9 +155,10 @@ const game = new Game(app, receiptHost);
 // We center this point in the viewport rather than centering the full 1000×800
 // GameView, which keeps the middle reel tile at the dead center of the app.
 const REEL_GRID_CENTER_Y = 295;
-// Visual composition offset: the reel grid reads better slightly above the
-// mathematical viewport center, leaving more breathing room for the controls.
-// X positioning remains untouched.
+// Visual composition offset in native GameView coordinates. Because this value
+// belongs to the 1000×800 game composition, it must scale with the GameView.
+// Keeping it in native coordinates prevents the offset from becoming
+// proportionally larger as the viewport shrinks. X positioning remains untouched.
 const GAME_VISUAL_Y_OFFSET = -80;
 const devModeController = new DevModeController({
   rightPresentation,
@@ -132,32 +181,60 @@ function resizeGame(): void {
   const width = Math.max(1, gameHost.clientWidth);
   const height = Math.max(1, gameHost.clientHeight);
   app.renderer.resize(width, height);
+
+  // Reserve only the Locals bar's minimum responsive height for gameplay
+  // layout. The visible bar is allowed to grow downward afterward to meet the
+  // cabinet exactly, so it absorbs unused top space without moving/rescaling
+  // the playable GameView.
+  const localsStyle = getComputedStyle(localsBarPlaceholder);
+  const reservedTopBarHeight =
+    Number.parseFloat(localsStyle.minHeight) ||
+    localsBarPlaceholder.getBoundingClientRect().height;
+  const footerStyle = getComputedStyle(footerArtworkPlaceholder);
+  const reservedFooterBarHeight =
+    Number.parseFloat(footerStyle.minHeight) ||
+    footerArtworkPlaceholder.getBoundingClientRect().height;
+  const playableTop = reservedTopBarHeight;
+  const playableBottom = Math.max(playableTop + 1, height - reservedFooterBarHeight);
+  const playableHeight = Math.max(1, playableBottom - playableTop);
+
   const scaleX = width / GAME_WIDTH;
-  const scaleY = height / GAME_HEIGHT;
+  const scaleY = playableHeight / GAME_HEIGHT;
   const scale = Math.min(scaleX, scaleY);
   game.view.scale.set(scale);
   game.view.x = (width - GAME_WIDTH * scale) / 2;
-  // Keep the reel grid itself vertically centered in the application.
-  // This translates the entire GameView as one unit, so reels, cabinet art,
-  // HUD, wager controls, and SPIN preserve all of their existing spacing.
-  game.view.y =
-    height / 2 -
+
+  // Prefer the established reel-centered composition, but clamp the translated
+  // GameView into the reserved playable region so cabinet art and controls can
+  // never slide underneath either persistent bar.
+  const desiredY =
+    playableTop +
+    playableHeight / 2 -
     REEL_GRID_CENTER_Y * scale +
-    GAME_VISUAL_Y_OFFSET;
-  // Lock the HTML artwork bars directly to the rendered GameView edges.
-  // Both bars live inside gameHost, so they always share the cabinet width
-  // and respond to resizing with the exact same geometry.
-  const gameTop = game.view.y;
+    GAME_VISUAL_Y_OFFSET * scale;
+  const minY = playableTop;
+  const maxY = playableBottom - GAME_HEIGHT * scale;
+  game.view.y = Math.min(Math.max(desiredY, minY), Math.max(minY, maxY));
+
+  // Grow the visible Locals bar into the otherwise-empty space above the
+  // cabinet. This is presentation-only: the GameView position/scale above has
+  // already been resolved from the reserved minimum bar height.
+  const flushLocalsHeight = Math.max(
+    reservedTopBarHeight,
+    Math.ceil(game.view.y)
+  );
+  localsBarPlaceholder.style.height = `${flushLocalsHeight}px`;
+
+  // Mirror the same treatment at the bottom: keep only the footer's minimum
+  // usable height reserved for gameplay, then grow the visible footer upward
+  // into any otherwise-empty space below the cabinet. This keeps the footer
+  // flush to the cabinet without moving or rescaling the playable GameView.
   const gameBottom = game.view.y + GAME_HEIGHT * scale;
-
-  // LOCALS BAR fills only the space above the rendered cabinet and stays
-  // flush against its top edge, mirroring the footer behavior below.
-  localsBarPlaceholder.style.top = '0';
-  localsBarPlaceholder.style.height = `${Math.max(0, Math.ceil(gameTop) + 1)}px`;
-
-  // FOOTER ARTWORK fills only the space below the rendered cabinet.
-  footerArtworkPlaceholder.style.top = `${Math.floor(gameBottom) - 1}px`;
-  footerArtworkPlaceholder.style.bottom = '0';
+  const flushFooterHeight = Math.max(
+    reservedFooterBarHeight,
+    Math.ceil(height - gameBottom)
+  );
+  footerArtworkPlaceholder.style.height = `${flushFooterHeight}px`;
 }
 window.addEventListener('resize', resizeGame);
 resizeGame();

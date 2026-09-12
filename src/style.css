@@ -90,6 +90,14 @@ body {
   min-height: 0;
   overflow: hidden;
   background: transparent;
+  container-type: inline-size;
+
+  /* Persistent responsive chrome. These heights are reserved before the
+     playable Pixi composition is scaled, so both bars remain fully usable
+     instead of being derived from leftover cabinet space. */
+    --chrome-bar-height: clamp(36px, 7.5vh, 68px);
+    --locals-bar-height: var(--chrome-bar-height);
+    --footer-bar-height: var(--chrome-bar-height);
 }
 /* Artwork blocking only. These layers never participate in layout, so the
    playable game remains exactly centered in the original middle column. */
@@ -114,25 +122,133 @@ body {
   inset: 0;
   background: rgba(41, 94, 101, 0.72);
 }
-.art-placeholder--footer {
+.portfolio-footer {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
+  min-height: var(--footer-bar-height);
+  height: var(--footer-bar-height);
   z-index: 2;
-  background: rgba(255, 0, 0, 0.5);
+  box-sizing: border-box;
+
+  overflow: hidden;
+
+  /* Presentation only: preserve the approved footer footprint and let the
+     surface feel like worn lower-cabinet trim rather than a separate banner. */
+  border: 1px solid #6a4a2d;
+  border-top-color: #a7773e;
+  background:
+    linear-gradient(180deg, rgba(83, 58, 34, 0.98) 0%, rgba(50, 34, 22, 0.99) 44%, rgba(28, 21, 17, 1) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 216, 153, 0.09),
+    0 -5px 18px rgba(0, 0, 0, 0.30);
+
+  font-family: monospace;
+  white-space: nowrap;
+  user-select: none;
 }
+
+.portfolio-footer__content {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(7px, 1vw, 14px);
+  padding: 0 clamp(12px, 2vw, 24px);
+  min-width: 0;
+  min-height: 0;
+}
+
+.portfolio-footer__label,
+.portfolio-footer__name,
+.portfolio-footer__tech {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.portfolio-footer__label,
+.portfolio-footer__name {
+  flex: 0 0 auto;
+}
+.portfolio-footer__label {
+  color: #e8d7b0;
+  font-size: clamp(8px, 1.25vh, 11px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.portfolio-footer__name {
+  color: #f3a94b;
+  font-size: clamp(9px, 1.45vh, 12px);
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+.portfolio-footer__divider {
+  flex: 0 0 1px;
+  width: 1px;
+  height: clamp(14px, 2.5vh, 24px);
+  background: linear-gradient(180deg, transparent, rgba(232, 190, 112, 0.72), transparent);
+}
+.portfolio-footer__tech {
+  flex: 0 1 auto;
+  color: #69c7c5;
+  font-size: clamp(8px, 1.2vh, 10px);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  opacity: 0.90;
+}
+
+@media (max-width: 720px) {
+  .portfolio-footer__content {
+    gap: clamp(5px, 0.8vw, 9px);
+  }
+  .portfolio-footer__divider {
+    display: none;
+  }
+}
+
+@container (max-width: 560px) {
+  .portfolio-footer__content {
+    gap: 6px;
+  }
+
+  .portfolio-footer__tech,
+  .portfolio-footer__divider {
+    display: none;
+  }
+
+  .portfolio-footer__label,
+  .portfolio-footer__name {
+    text-overflow: clip;
+  }
+}
+
 .art-placeholder--locals {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
+  min-height: var(--locals-bar-height);
+  height: var(--locals-bar-height);
   z-index: 2;
-  background: rgba(0, 0, 0, 1);
+  background:
+    linear-gradient(180deg,
+      #030303 0%,
+      #050504 58%,
+      #0d0a06 78%,
+      #1f150b 92%,
+      #3a2614 100%
+    );
   color: #c5aa72;
   border: 2px solid #8f7650;
-  font-size: 20px;
+  font-size: clamp(12px, 2.4vh, 20px);
   font-weight: 700;
+  white-space: nowrap;
 }
 .locals-bar-trigger {
   margin: 0;
@@ -141,12 +257,46 @@ body {
   cursor: pointer;
   pointer-events: auto;
 }
+.locals-bar-trigger__content {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 12px;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.locals-bar-trigger__phrase {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: pre;
+}
+
+.locals-bar-trigger__phrase > span {
+  line-height: 1;
+}
+
+.locals-bar-trigger__emphasis {
+  color: #e6c47a;
+  font-weight: strong;
+  font-size: 1.25em;
+  transform: translateY(-0.05em);
+}
 .locals-bar-trigger:hover,
 .locals-bar-trigger:focus-visible {
   background: #1f1910;
   color: #d8c28f;
   border-color: #c5aa72;
 }
+
+/* Meet the Locals is treated as one responsive composition. The backdrop is
+   a size container so the modal can scale against the ACTUAL host width/height,
+   not just the browser width. All modal chrome below is sized in container-width
+   units, so header, title, close button, padding, and artwork shrink together. */
 .locals-backdrop {
   position: absolute;
   inset: 0;
@@ -155,8 +305,12 @@ body {
   display: grid;
   place-items: center;
 
-  padding: clamp(12px, 3vw, 48px);
+  --locals-edge-gap: clamp(8px, 2.4vmin, 48px);
+  padding: var(--locals-edge-gap);
   box-sizing: border-box;
+
+  /* Enables cqw/cqh units for the modal below. */
+  container-type: size;
 
   background: rgba(0, 0, 0, 0.76);
 }
@@ -164,39 +318,68 @@ body {
   display: none;
 }
 .locals-panel {
-  width: min(1180px, 100%);
-  max-height: 82vh;
+  /* 1180x620 is the complete desktop composition, including the header.
+     Width is limited by BOTH axes of the actual backdrop content box. Because
+     the aspect ratio is fixed, whichever axis runs out first scales the whole
+     modal rather than squeezing only the artwork body. */
+  width: min(1180px, 100cqw, calc(100cqh * 1.903225806));
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1180 / 620;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+
+  /* Internal dimensions use this panel as their sizing container. */
+  container-type: inline-size;
+
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
-  border: 2px solid #8f7650;
+  border: max(1px, 0.17cqw) solid #8f7650;
   background: #000000;
   color: #f4f5f6;
   box-shadow: 0 18px 70px rgba(0, 0, 0, 0.65);
 }
 .locals-panel__header {
+  min-width: 0;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 14px 18px;
-  border-bottom: 2px solid #8f7650;
+  gap: 2.034cqw;                 /* 24px at the 1180px design width */
+  padding: 1.186cqw 1.525cqw;   /* 14px 18px at design width */
+  border-bottom: max(1px, 0.17cqw) solid #8f7650;
   background: #1f1910;
 }
 .locals-panel__title {
+  min-width: 0;
   margin: 0;
-  font: 700 24px/1 monospace;
-  letter-spacing: 0.12em;
   color: #c5aa72;
+  font-family: monospace;
+  font-size: 2.034cqw;           /* 24px at design width */
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
 }
 .locals-panel__close {
-  min-width: 96px;
-  height: 36px;
-  border: 2px solid #8f7650;
-  border-radius: 4px;
+  flex: 0 0 auto;
+  width: 8.136cqw;              /* 96px at design width */
+  min-width: 0;
+  height: 3.051cqw;             /* 36px at design width */
+  padding: 0;
+  border: max(1px, 0.17cqw) solid #8f7650;
+  border-radius: 0.339cqw;       /* 4px at design width */
   background: #14110c;
   color: #f4f5f6;
-  font: 700 11px/1 monospace;
+  font-family: monospace;
+  font-size: 0.932cqw;           /* 11px at design width */
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
 }
 .locals-panel__close:hover {
@@ -204,20 +387,23 @@ body {
   border-color: #c5aa72;
   color: #ffffff;
 }
-/* Image stage: the panel owns the geometry; the artwork fits inside it. */
 .locals-panel__body {
+  min-width: 0;
   min-height: 0;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: 1.356cqw;             /* 16px at design width */
   box-sizing: border-box;
   overflow: hidden;
   background: #000000;
 }
 .locals-panel__image {
   display: block;
-  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  width: auto;
   height: auto;
+  max-width: 100%;
   max-height: 100%;
   object-fit: contain;
 }
