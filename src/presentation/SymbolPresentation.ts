@@ -1,10 +1,8 @@
 import type { SymbolId } from '../game/types';
-
 export interface SymbolPresentation {
   readonly main: number;
   readonly background: number;
 }
-
 export const SYMBOL_PRESENTATION: Record<SymbolId, SymbolPresentation> = {
   marge: { main: 0x36b8d4, background: 0xe5f5f8 },
   barkley: { main: 0xd99024, background: 0xfaf0de },

@@ -7,7 +7,6 @@ import {
 } from 'pixi.js';
 import { gsap } from 'gsap';
 import {
-  CONTROL_DECK_FRONT_URL,
   REEL_CABINET_FRONT_URL,
 } from '../assets/SymbolAssets';
 import type {
@@ -45,6 +44,7 @@ export class GameView extends Container {
   private readonly betText: Text;
   private readonly winText: Text;
   private readonly nextSpinMultiplierText: Text;
+  private readonly nextSpinMultiplierRecess = new Graphics();
   // ─────────────────────────────────────────────
   // Constructor / Main Slot Layout
   // ─────────────────────────────────────────────
@@ -81,40 +81,28 @@ export class GameView extends Container {
     this.addChild(reelFrame);
     this.reelView = new ReelView();
     this.reelView.x = 180;
-    this.reelView.y = 105;
+    this.reelView.y = 99;
     this.addChild(this.reelView);
-
-    // Cabinet front artwork is authored on the native 1000×800 game canvas,
-    // so it maps 1:1 to GameView coordinates and sits over the reels while
-    // remaining behind all HUD and player controls.
-    const reelCabinetFront = new Sprite(
-      Texture.from(REEL_CABINET_FRONT_URL),
+    // Upper cabinet artwork.
+    const reelCabinetFront = this.createReelCabinetArtwork(
+      REEL_CABINET_FRONT_URL,
     );
-    reelCabinetFront.x = 0;
-    reelCabinetFront.y = 0;
     this.addChild(reelCabinetFront);
-
-    // Control-deck artwork shares the native 1000×800 game canvas and sits
-    // above the reel cabinet art while remaining behind all functional HUD
-    // readouts, wager controls, and the SPIN control.
-    const controlDeckFront = new Sprite(
-      Texture.from(CONTROL_DECK_FRONT_URL),
-    );
-    controlDeckFront.x = 0;
-    controlDeckFront.y = 0;
-    this.addChild(controlDeckFront);
-
+    // Programmatic HUD/control bevel sits above the cabinet artwork and below
+    // all labels/buttons. This framing is independent of any control-deck image.
+    const controlDeckFraming = this.createControlDeckFraming();
+    this.addChild(controlDeckFraming);
     this.nextSpinMultiplierText = new Text({
       text: '',
       style: {
-        fill: 0xd8dde3,
+        fill: 0xf2c46d,
         fontSize: 14,
         fontWeight: 'bold',
       },
     });
     this.nextSpinMultiplierText.anchor.set(0.5);
     this.nextSpinMultiplierText.x = 500;
-    this.nextSpinMultiplierText.y = 42;
+    this.nextSpinMultiplierText.y = 20;
     this.nextSpinMultiplierText.visible = false;
     this.addChild(this.nextSpinMultiplierText);
     // Bonus presentation is isolated from the base-game view and is
@@ -127,14 +115,14 @@ export class GameView extends Container {
     const balanceLabel = new Text({
       text: 'BALANCE',
       style: {
-        fill: 0x777777,
+        fill: 0xf2c46d,
         fontSize: 12,
         fontWeight: 'bold',
       },
     });
     balanceLabel.anchor.set(0.5);
     balanceLabel.x = 260;
-    balanceLabel.y = 548;
+    balanceLabel.y = 546;
     this.addChild(balanceLabel);
     this.balanceLabel = balanceLabel;
     this.balanceText = new Text({
@@ -147,19 +135,19 @@ export class GameView extends Container {
     });
     this.balanceText.anchor.set(0.5);
     this.balanceText.x = 260;
-    this.balanceText.y = 572;
+    this.balanceText.y = 569;
     this.addChild(this.balanceText);
     const wagerLabel = new Text({
       text: 'WAGER',
       style: {
-        fill: 0xa9a9a9,
+        fill: 0xf2c46d,
         fontSize: 12,
         fontWeight: 'bold',
       },
     });
     wagerLabel.anchor.set(0.5);
     wagerLabel.x = 500;
-    wagerLabel.y = 548;
+    wagerLabel.y = 546;
     this.addChild(wagerLabel);
     this.wagerLabel = wagerLabel;
     this.betText = new Text({
@@ -172,19 +160,19 @@ export class GameView extends Container {
     });
     this.betText.anchor.set(0.5);
     this.betText.x = 500;
-    this.betText.y = 572;
+    this.betText.y = 569;
     this.addChild(this.betText);
     const winLabel = new Text({
       text: 'WIN',
       style: {
-        fill: 0x777777,
+        fill: 0xf2c46d,
         fontSize: 12,
         fontWeight: 'bold',
       },
     });
     winLabel.anchor.set(0.5);
     winLabel.x = 740;
-    winLabel.y = 548;
+    winLabel.y = 546;
     this.addChild(winLabel);
     this.winLabel = winLabel;
     this.winText = new Text({
@@ -197,69 +185,69 @@ export class GameView extends Container {
     });
     this.winText.anchor.set(0.5);
     this.winText.x = 740;
-    this.winText.y = 572;
+    this.winText.y = 569;
     this.addChild(this.winText);
     const betIncrementText = new Text({
       text: 'BET INCREMENT',
       style: {
-        fill: 0x777777,
+        fill: 0xf2c46d,
         fontSize: 12,
         fontWeight: 'bold',
       },
     });
     betIncrementText.anchor.set(0.5);
     betIncrementText.x = 500;
-    betIncrementText.y = 610;
+    betIncrementText.y = 620;
     this.addChild(betIncrementText);
     // Hybrid quick-add controls:
     // clicking one immediately adds that amount and also makes it
     // the active value used by the + / − controls.
     this.bet1Button = this.createBetButton(
       '$1',
-      414,
-      624,
-      52,
+      402,
+      634,
+      60,
       34,
     );
     this.bet5Button = this.createBetButton(
       '$5',
-      474,
-      624,
-      52,
+      470,
+      634,
+      60,
       34,
     );
     this.bet25Button = this.createBetButton(
       '$25',
-      534,
-      624,
+      538,
+      634,
       60,
       34,
     );
     this.clearBetButton = this.createBetButton(
       'CLEAR',
       348,
-      670,
+      680,
       96,
       34,
     );
     this.betDownButton = this.createBetButton(
       '−',
       452,
-      670,
+      680,
       44,
       34,
     );
     this.betUpButton = this.createBetButton(
       '+',
       504,
-      670,
+      680,
       44,
       34,
     );
     this.maxBetButton = this.createBetButton(
       'MAX BET',
       556,
-      670,
+      678,
       96,
       34,
     );
@@ -277,11 +265,11 @@ export class GameView extends Container {
     this.spinButton =
       new Graphics()
         .roundRect(
-          400,
-          722,
-          200,
+          350,
+          730,
+          300,
           42,
-          12,
+          99,
         )
         .fill(0x8b1e2d)
         .stroke({
@@ -302,9 +290,77 @@ export class GameView extends Container {
     });
     this.spinText.anchor.set(0.5);
     this.spinText.x = 500;
-    this.spinText.y = 743;
+    this.spinText.y = 752;
     this.addChild(this.spinText);
   }
+  private createReelCabinetArtwork(
+    assetUrl: string,
+  ): Sprite {
+    const texture = Texture.from(assetUrl);
+    const sprite = new Sprite(texture);
+    const sourceWidth = Math.max(texture.width, 1);
+    // UPPER CABINET TREATMENT:
+    // Always normalize by width only. This preserves the source aspect ratio,
+    // keeps the reel cabinet full-size, centered, and top-aligned.
+    const scale = GAME_WIDTH / sourceWidth;
+    sprite.scale.set(scale);
+    sprite.x = (GAME_WIDTH - (texture.width * scale)) / 2;
+    sprite.y = 0;
+    return sprite;
+  }
+
+  private createControlDeckFraming(): Container {
+    const framing = new Container();
+    const createRecess = (
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      radius: number,
+      graphics = new Graphics(),
+    ): Graphics =>
+      graphics
+        .roundRect(
+          x,
+          y,
+          width,
+          height,
+          radius,
+        )
+        .fill({
+          color: 0x0b0d10,
+          alpha: 0.38,
+        })
+        .stroke({
+          width: 1,
+          color: 0x737c87,
+          alpha: 0.52,
+        });
+    framing.addChild(
+      // NEXT SPIN MULTIPLIER
+      createRecess(
+        385,
+        5,
+        230,
+        30,
+        10,
+        this.nextSpinMultiplierRecess,
+      ),
+      // BALANCE
+      createRecess(190, 533, 140, 54, 10),
+      // WAGER
+      createRecess(430, 533, 140, 54, 10),
+      // WIN
+      createRecess(670, 533, 140, 54, 10),
+      // BET INCREMENT
+      createRecess(325, 608, 350, 112, 14),
+      // SPIN
+      createRecess(325, 723, 350, 58, 14),
+    );
+    this.nextSpinMultiplierRecess.visible = false;
+    return framing;
+  }
+
   private createBetButton(
     label: string,
     x: number,
@@ -411,8 +467,8 @@ export class GameView extends Container {
       value: 1 | 5 | 25;
       width: number;
     }> = [
-        { button: this.bet1Button, value: 1, width: 52 },
-        { button: this.bet5Button, value: 5, width: 52 },
+        { button: this.bet1Button, value: 1, width: 60 },
+        { button: this.bet5Button, value: 5, width: 60 },
         { button: this.bet25Button, value: 25, width: 60 },
       ];
     incrementButtons.forEach(({
@@ -499,26 +555,23 @@ export class GameView extends Container {
     gsap.killTweensOf(this.balanceText.scale);
     this.balanceText.scale.set(1);
     this.balanceText.style.fill = 0x63dbe8;
-    this.balanceText.text = `$${balanceBeforeBet.toFixed(2)}`;
-
+    this.balanceText.text = this.formatMoney(balanceBeforeBet);
     const displayedBalance = { value: balanceBeforeBet };
-
     await new Promise<void>((resolve) => {
       const timeline = gsap.timeline({
         onComplete: () => {
-          this.balanceText.text = `$${balanceAfterBet.toFixed(2)}`;
+          this.balanceText.text = this.formatMoney(balanceAfterBet);
           this.balanceText.style.fill = 0xffffff;
           resolve();
         },
       });
-
       timeline
         .to(displayedBalance, {
           value: balanceAfterBet,
           duration: 0.2,
           ease: 'none',
           onUpdate: () => {
-            this.balanceText.text = `$${displayedBalance.value.toFixed(2)}`;
+            this.balanceText.text = this.formatMoney(displayedBalance.value);
           },
         }, 0)
         .to(this.balanceText.scale, {
@@ -548,36 +601,31 @@ export class GameView extends Container {
   ): Promise<void> {
     gsap.killTweensOf(this.winText.scale);
     gsap.killTweensOf(this.balanceText.scale);
-
     this.winText.scale.set(1);
     this.balanceText.scale.set(1);
-
     this.winText.text = '$0.00';
-    this.balanceText.text = `$${balanceBeforePayout.toFixed(2)}`;
+    this.balanceText.text = this.formatMoney(balanceBeforePayout);
     this.winText.style.fill = 0x62d98b;
     this.balanceText.style.fill = 0xffffff;
-
     const displayedWin = { value: 0 };
     const displayedBalance = { value: balanceBeforePayout };
-
     await new Promise<void>((resolve) => {
       const timeline = gsap.timeline({
         onComplete: () => {
-          this.winText.text = `$${totalWin.toFixed(2)}`;
-          this.balanceText.text = `$${finalBalance.toFixed(2)}`;
+          this.winText.text = this.formatMoney(totalWin);
+          this.balanceText.text = this.formatMoney(finalBalance);
           this.winText.style.fill = 0xffffff;
           this.balanceText.style.fill = 0xffffff;
           resolve();
         },
       });
-
       timeline
         .to(displayedWin, {
           value: totalWin,
           duration: 0.2,
           ease: 'none',
           onUpdate: () => {
-            this.winText.text = `$${displayedWin.value.toFixed(2)}`;
+            this.winText.text = this.formatMoney(displayedWin.value);
           },
         }, 0)
         .to(this.winText.scale, {
@@ -601,7 +649,7 @@ export class GameView extends Container {
           duration: 0.2,
           ease: 'none',
           onUpdate: () => {
-            this.balanceText.text = `$${displayedBalance.value.toFixed(2)}`;
+            this.balanceText.text = this.formatMoney(displayedBalance.value);
           },
         })
         .to(this.balanceText.scale, {
@@ -618,7 +666,6 @@ export class GameView extends Container {
         });
     });
   }
-
   private async animateMoneyBeat(
     text: Text,
     accentColor: number,
@@ -661,12 +708,12 @@ export class GameView extends Container {
   }
   // Live spins use a distinct subdued busy state: non-interactive, but more
   // visible than a genuinely disabled control such as a $0 wager.
-setSpinBusy(busy: boolean): void {
-  this.spinBusy = busy;
-  this.spinText.text = busy ? 'SPINNING…' : 'SPIN';
-  this.spinText.style.fontSize = busy ? 20 : 26;
-  this.applySpinControlState();
-}
+  setSpinBusy(busy: boolean): void {
+    this.spinBusy = busy;
+    this.spinText.text = busy ? 'SPINNING…' : 'SPIN';
+    this.spinText.style.fontSize = busy ? 20 : 26;
+    this.applySpinControlState();
+  }
   private applySpinControlState(): void {
     const interactive = this.spinEnabledRequested && !this.spinBusy;
     this.spinButton.eventMode = interactive ? 'static' : 'none';
@@ -676,7 +723,9 @@ setSpinBusy(busy: boolean): void {
     this.spinText.alpha = alpha;
   }
   setNextSpinMultiplier(multiplier: number): void {
+    this.nextSpinMultiplierRecess.visible = multiplier > 1;
     this.nextSpinMultiplierText.visible = multiplier > 1;
+
     this.nextSpinMultiplierText.text = multiplier > 1
       ? `×${multiplier} ACTIVE · NEXT LIVE SPIN`
       : '';
@@ -747,6 +796,12 @@ setSpinBusy(busy: boolean): void {
   clearWinningPaylines(): void {
     this.reelView.clearWinningPaylines();
   }
+  private formatMoney(value: number): string {
+    return `$${value.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
   // ─────────────────────────────────────────────
   // HUD Updates
   // ─────────────────────────────────────────────
@@ -760,9 +815,9 @@ setSpinBusy(busy: boolean): void {
     this.balanceLabel.text = 'BALANCE (REPLAY)';
     this.wagerLabel.text = 'WAGER (REPLAY)';
     this.winLabel.text = 'WIN (REPLAY)';
-    this.balanceText.text = `$${balance.toFixed(2)}`;
-    this.betText.text = `$${bet.toFixed(2)}`;
-    this.winText.text = `$${win.toFixed(2)}`;
+    this.balanceText.text = this.formatMoney(balance);
+    this.betText.text = this.formatMoney(bet);
+    this.winText.text = this.formatMoney(win);
   }
   // Updates all player-facing HUD values from the current game state.
   updateHud(
@@ -775,11 +830,11 @@ setSpinBusy(busy: boolean): void {
     this.wagerLabel.text = 'WAGER';
     this.winLabel.text = 'WIN';
     this.balanceText.text =
-      `$${balance.toFixed(2)}`;
+      this.formatMoney(balance);
     this.betText.text =
-      `$${bet.toFixed(2)}`;
+      this.formatMoney(bet);
     this.winText.text =
-      `$${win.toFixed(2)}`;
+      this.formatMoney(win);
     this.updateBetControls(
       balance,
       bet,

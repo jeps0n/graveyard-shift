@@ -19,6 +19,10 @@ leftArtworkPlaceholder.textContent = 'LEFT ARTWORK / WORLD BUILDING';
 leftPresentation.appendChild(leftArtworkPlaceholder);
 const gameHost = document.createElement('section');
 gameHost.className = 'game-host';
+const footerArtworkPlaceholder = document.createElement('div');
+footerArtworkPlaceholder.className = 'art-placeholder art-placeholder--footer';
+footerArtworkPlaceholder.textContent = 'FOOTER ARTWORK';
+gameHost.appendChild(footerArtworkPlaceholder);
 const rightPresentation = document.createElement('aside');
 rightPresentation.className = 'presentation-side presentation-side--right';
 rightPresentation.dataset.mode = 'portfolio';
@@ -141,6 +145,11 @@ function resizeGame(): void {
     height / 2 -
     REEL_GRID_CENTER_Y * scale +
     GAME_VISUAL_Y_OFFSET;
+  // Keep the HTML footer locked directly to the rendered bottom edge of
+  // the 1000×800 GameView so no game-host background can show between them.
+  const gameBottom = game.view.y + GAME_HEIGHT * scale;
+  footerArtworkPlaceholder.style.top = `${Math.floor(gameBottom) - 1}px`;
+  footerArtworkPlaceholder.style.bottom = '0';
 }
 window.addEventListener('resize', resizeGame);
 resizeGame();
