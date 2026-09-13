@@ -140,6 +140,9 @@ await app.init({
 gameHost.appendChild(app.canvas);
 await loadSymbolAssets();
 const game = new Game(app, receiptHost);
+// ─────────────────────────────────────────────
+// Responsive Game Composition
+// ─────────────────────────────────────────────
 // The visual center of the 5×3 reel grid in native GameView coordinates.
 // ReelView starts at y=105 and the grid is 380px tall, so its center is y=295.
 // We center this point in the viewport rather than centering the full 1000×800
@@ -174,6 +177,9 @@ function resizeGame(): void {
   const width = Math.max(1, gameHost.clientWidth);
   const height = Math.max(1, gameHost.clientHeight);
   app.renderer.resize(width, height);
+  // ─────────────────────────────────────────────
+  // Vertical Safe Region
+  // ─────────────────────────────────────────────
   // Reserve only the Locals bar's minimum responsive height for gameplay
   // layout. The visible bar is allowed to grow downward afterward to meet the
   // cabinet exactly, so it absorbs unused top space without moving/rescaling
@@ -194,7 +200,7 @@ function resizeGame(): void {
   const scale = Math.min(scaleX, scaleY);
   game.view.scale.set(scale);
   game.view.x = (width - GAME_WIDTH * scale) / 2;
-  // Prefer the established reel-centered composition, but clamp the translated
+  // Preserve the reel-centered composition when space allows, then clamp the translated
   // GameView into the reserved playable region so cabinet art and controls can
   // never slide underneath either persistent bar.
   const desiredY =
@@ -205,7 +211,7 @@ function resizeGame(): void {
   const minY = playableTop;
   const maxY = playableBottom - GAME_HEIGHT * scale;
   game.view.y = Math.min(Math.max(desiredY, minY), Math.max(minY, maxY));
-  // Grow the visible Locals bar into the otherwise-empty space above the
+  // Let the visible Locals bar absorb otherwise-empty space above the
   // cabinet. This is presentation-only: the GameView position/scale above has
   // already been resolved from the reserved minimum bar height.
   const flushLocalsHeight = Math.max(
@@ -213,7 +219,7 @@ function resizeGame(): void {
     Math.ceil(game.view.y)
   );
   localsBarPlaceholder.style.height = `${flushLocalsHeight}px`;
-  // Mirror the same treatment at the bottom: keep only the footer's minimum
+  // Mirror the same invariant below: reserve only the footer's minimum
   // usable height reserved for gameplay, then grow the visible footer upward
   // into any otherwise-empty space below the cabinet. This keeps the footer
   // flush to the cabinet without moving or rescaling the playable GameView.

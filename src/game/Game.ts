@@ -301,18 +301,7 @@ export class Game {
     );
     await this.view.animateSpin();
     const primary = generatePrimaryGrid();
-    // LEAVE THIS COMMENT
-    // generatePrimaryGrid();
-    // const primary = {
-    //   grid: [
-    //     ['barkley', 'marge', 'coffee'],
-    //     ['gas', 'barkley', 'victor'],
-    //     ['burger', 'barkley', 'gas'],
-    //     ['burger', 'chip', 'dice'],
-    //     ['zed', 'zed', 'dice'],
-    //   ] as ReelGrid,
-    //   draws: [],
-    // };
+
     this.currentGrid = cloneGrid(primary.grid);
     await this.view.animateReelStops(primary.grid);
     this.devReceipt.event(
@@ -409,8 +398,6 @@ export class Game {
         this.bet,
         featureMultiplier,
         totalWinAmount,
-        // this.balance,
-        // this.balance,
       );
       this.commitReplayCapture(result.grid, result.wins, totalWinAmount);
       await this.finishSpin({
@@ -530,17 +517,14 @@ export class Game {
       this.bet,
       featureMultiplier,
       totalWinAmount,
-      // this.balance,
-      // this.balance + totalWin,
     );
     this.commitReplayCapture(finalResult.grid, finalResult.wins, totalWinAmount);
     await this.finishSpin(
       finalResult,
     );
-    // Scatter stays live through cascades. Because Scatter never
-    // participates in line wins, existing Scatters persist while refill
-    // symbols can add more. Check the final resolved grid once so After
-    // Midnight can trigger at most once for this spin.
+    // Scatter persists through cascades because it never participates in line-win
+    // removal. Evaluate only the final resolved grid so refill can add Scatters while
+    // After Midnight remains limited to one trigger per completed spin.
     const scatterCount =
       this.countScatters(
         cascadeGrid,

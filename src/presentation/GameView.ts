@@ -46,11 +46,10 @@ export class GameView extends Container {
   private readonly nextSpinMultiplierText: Text;
   private readonly nextSpinMultiplierRecess = new Graphics();
   // ─────────────────────────────────────────────
-  // Constructor / Main Slot Layout
+  // Constructor / Base Slot Layout
   // ─────────────────────────────────────────────
   constructor() {
     super();
-    // Main game background.
     const background =
       new Graphics()
         .rect(
@@ -61,9 +60,8 @@ export class GameView extends Container {
         )
         .fill(0x0b0d10);
     this.addChild(background);
-    // Branding moves to the outer presentation layer so the gameplay
-    // canvas can use its vertical space for the slot itself.
-    // Reel frame and reel view.
+    // Branding belongs to the outer presentation shell; GameView reserves its
+    // native 1000×800 composition for playable slot presentation.
     const reelFrame =
       new Graphics()
         .roundRect(
@@ -83,13 +81,12 @@ export class GameView extends Container {
     this.reelView.x = 180;
     this.reelView.y = 100;
     this.addChild(this.reelView);
-    // Upper cabinet artwork.
     const reelCabinetFront = this.createReelCabinetArtwork(
       REEL_CABINET_FRONT_URL,
     );
     this.addChild(reelCabinetFront);
-    // Programmatic HUD/control bevel sits above the cabinet artwork and below
-    // all labels/buttons. This framing is independent of any control-deck image.
+    // Programmatic control framing sits above cabinet artwork and below interactive
+    // HUD elements, keeping control geometry independent of decorative assets.
     const controlDeckFraming = this.createControlDeckFraming();
     this.addChild(controlDeckFraming);
     this.nextSpinMultiplierText = new Text({
@@ -110,8 +107,8 @@ export class GameView extends Container {
     this.nextSpinMultiplierText.y = 22;
     this.nextSpinMultiplierText.visible = false;
     this.addChild(this.nextSpinMultiplierText);
-    // Bonus presentation is isolated from the base-game view and is
-    // brought to the front only when the feature is shown.
+    // Feature presentation remains isolated from the base-game hierarchy and is
+    // promoted only while After Midnight is active.
     this.afterMidnightView = new AfterMidnightView();
     // ─────────────────────────────────────────────
     // HUD / Wager Controls
@@ -286,7 +283,6 @@ export class GameView extends Container {
     // ─────────────────────────────────────────────
     // Spin Control
     // ─────────────────────────────────────────────
-    // Main spin button.
     this.spinButton =
       new Graphics()
         .roundRect(
@@ -304,7 +300,6 @@ export class GameView extends Container {
     this.spinButton.eventMode = 'static';
     this.spinButton.cursor = 'pointer';
     this.addChild(this.spinButton);
-    // Spin button label.
     this.spinText = new Text({
       text: 'SPIN',
       style: {
@@ -362,7 +357,6 @@ export class GameView extends Container {
           alpha: 0.52,
         });
     framing.addChild(
-      // NEXT SPIN MULTIPLIER
       createRecess(
         356,
         5,
@@ -371,15 +365,10 @@ export class GameView extends Container {
         10,
         this.nextSpinMultiplierRecess,
       ),
-      // BALANCE
       createRecess(186, 533, 152, 54, 10),
-      // WAGER
       createRecess(426, 533, 152, 54, 10),
-      // WIN
       createRecess(666, 533, 152, 54, 10),
-      // BET INCREMENT
       createRecess(325, 608, 350, 112, 14),
-      // SPIN
       createRecess(325, 723, 350, 58, 14),
     );
     this.nextSpinMultiplierRecess.visible = false;

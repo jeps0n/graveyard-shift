@@ -13,6 +13,11 @@ function drawWeightedMultiplier(): number {
   }
   return POSSIBLE_MULTIPLIERS[POSSIBLE_MULTIPLIERS.length - 1];
 }
+// ─────────────────────────────────────────────
+// After Midnight Feature Math
+// ─────────────────────────────────────────────
+// Feature math owns multiplier assignment only; presentation and timing remain
+// isolated in AfterMidnightView.
 export class AfterMidnight {
   private outcomes: Partial<Record<MidnightChoice, number>> = {};
   choose(choice: MidnightChoice): number {
@@ -20,9 +25,9 @@ export class AfterMidnight {
     if (existingOutcome !== undefined) {
       return existingOutcome;
     }
-    // The first revealed choice is the player's selection. Draw it from
-    // the locked 50% / 35% / 15% distribution, then assign the two
-    // remaining distinct multipliers to the unrevealed choices.
+    // The selected choice receives the only weighted draw (50% / 35% / 15%).
+    // Assign the two remaining distinct multipliers to the unrevealed choices so
+    // every reveal is unique without changing the selected outcome's probability.
     const selectedMultiplier = drawWeightedMultiplier();
     this.outcomes[choice] = selectedMultiplier;
     const remainingChoices = (

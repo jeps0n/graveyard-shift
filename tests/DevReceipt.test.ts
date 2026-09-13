@@ -82,3 +82,47 @@ describe('DevReceipt contract - wager-aware payout reporting', () => {
     expect(output()).toContain('TOTAL WIN              $400.00');
   });
 });
+
+describe('DevReceipt contract - diagnostic lifecycle', () => {
+  it('renders the spin, RNG, cascade, feature, and utility receipt paths', () => {
+    const host = { appendChild: vi.fn() };
+    const receipt = new DevReceipt(host as never);
+    const grid = [
+      ['coffee', 'burger', 'gas'],
+      ['burger', 'gas', 'chip'],
+      ['gas', 'chip', 'dice'],
+      ['chip', 'dice', 'gary'],
+      ['dice', 'gary', 'zed'],
+    ] as const;
+    const draw = { reel: 0, row: 0, randomValue: 0.25, stripLength: 10, index: 2, symbol: 'coffee' as const };
+
+    receipt.setVisible(false);
+    receipt.setVisible(true);
+    receipt.spinStart(7, 5, 2, 100);
+    receipt.primaryGrid(grid as never);
+    receipt.rngDraws([draw]);
+    receipt.cascadeStart(1);
+    receipt.winningPositionsRemoved([{ position: { reel: 0, row: 0 }, symbol: 'coffee' }]);
+    receipt.gridAfterCollapse(grid.map((reel) => [...reel]) as never);
+    receipt.refill([draw]);
+    receipt.cascadeGrid(grid as never);
+    receipt.finalGrid(grid as never);
+    receipt.afterMidnight(3);
+    receipt.pick('GAS CAN', 5);
+    receipt.nextSpin(5);
+    receipt.blur();
+
+    expect(host.appendChild).toHaveBeenCalledWith(textarea);
+    expect(textarea.blur).toHaveBeenCalledTimes(1);
+    expect(output()).toContain('SPIN START');
+    expect(output()).toContain('RNG DRAW');
+    expect(output()).toContain('WINNING POSITIONS REMOVED');
+    expect(output()).toContain('GRID AFTER COLLAPSE');
+    expect(output()).toContain('AFTER MIDNIGHT');
+    expect(output()).toContain('MYSTERY PICK');
+    expect(output()).toContain('NEXT SPIN');
+
+    receipt.clear();
+    expect(output()).toBe('');
+  });
+});

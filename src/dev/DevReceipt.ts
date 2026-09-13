@@ -246,8 +246,6 @@ export class DevReceipt {
     bet: number,
     featureMultiplier: number,
     totalWinAmount: number,
-    // balanceBeforePayout: number,
-    // balanceAfterPayout: number,
   ): void {
     this.event(
       'FINAL RESULT',
@@ -257,8 +255,6 @@ export class DevReceipt {
         `BASE WIN               $${this.formatMoney(basePayoutMultiplier * bet)}`,
         `FEATURE MULTIPLIER     ×${featureMultiplier}`,
         `TOTAL WIN              $${this.formatMoney(totalWinAmount)}`,
-        // `BALANCE BEFORE  $${balanceBeforePayout.toFixed(2)}`,
-        // `BALANCE AFTER   $${balanceAfterPayout.toFixed(2)}`,
       ],
     );
   }

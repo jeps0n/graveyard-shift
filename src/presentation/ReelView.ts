@@ -40,6 +40,11 @@ const DEV_PAYLINE_COLORS = [
   0x8b4513,
   0xffffff,
 ];
+// ─────────────────────────────────────────────
+// Reel Presentation / Tile Identity
+// ─────────────────────────────────────────────
+// ReelView owns visual reel motion only. Logical outcomes arrive pre-resolved,
+// while tile containers preserve visual identity across wins and cascades.
 export class ReelView extends Container {
   private readonly gridLayer: Container;
   private readonly paylineLayer: Container;
@@ -84,8 +89,7 @@ export class ReelView extends Container {
         delay: reelIndex * 0.08,
       });
     }
-    // Give the reels a short visible spin before the
-    // sequential stop/reveal phase begins.
+    // Establish a short shared spin phase before sequential reel stops begin.
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 900);
     });
@@ -139,7 +143,8 @@ export class ReelView extends Container {
       }
       rows.add(position.row);
     }
-    // Winning symbols disappear as complete visual tiles.
+    // Remove winning symbols as complete tiles so symbol, backing, and DEV coordinate
+    // remain visually atomic throughout the cascade.
     const removedAnimations: Promise<void>[] = [];
     for (const [reelIndex, rows] of removedByReel) {
       const tiles = this.reelTiles[reelIndex];
@@ -164,8 +169,8 @@ export class ReelView extends Container {
       }
     }
     await Promise.all(removedAnimations);
-    // Only surviving tiles that need to move are animated. The entire tile
-    // container moves so its background, symbol, and coordinate stay together.
+    // Move only surviving tiles whose logical row changed. Animating the complete
+    // tile preserves its background, symbol, and DEV coordinate as one identity.
     const collapseAnimations: Promise<void>[] = [];
     for (let reelIndex = 0; reelIndex < grid.length; reelIndex++) {
       const tiles = this.reelTiles[reelIndex];
@@ -202,8 +207,8 @@ export class ReelView extends Container {
       }
     }
     await Promise.all(collapseAnimations);
-    // The faded tiles are no longer part of the visible reel. Survivors keep
-    // their existing containers so their identity is preserved across steps.
+    // Destroy removed tiles after their fade; retain survivor containers so visual
+    // identity persists into the next cascade step.
     for (const [reelIndex, rows] of removedByReel) {
       const spinner = this.reelSpinners[reelIndex];
       const tiles = this.reelTiles[reelIndex];
@@ -217,8 +222,8 @@ export class ReelView extends Container {
         }
       }
     }
-    // New symbols are created as complete tiles above the visible window and
-    // fall into exactly the positions opened by the removed symbols.
+    // Create refill symbols above the reel mask and drop them only into vacancies
+    // produced by the resolved cascade.
     const nextTilesByReel: TileVisual[][] = [];
     const refillAnimations: Promise<void>[] = [];
     for (let reelIndex = 0; reelIndex < grid.length; reelIndex++) {
@@ -265,8 +270,8 @@ export class ReelView extends Container {
       ]);
     }
     await Promise.all(refillAnimations);
-    // Re-index both tile references and winning-cell references to match the
-    // new logical grid before the next evaluation/cascade can begin.
+    // Re-index tile and winning-cell references before the next step so visual
+    // coordinates remain aligned with the newly resolved logical grid.
     this.winningCells.clear();
     for (let reelIndex = 0; reelIndex < nextTilesByReel.length; reelIndex++) {
       const tiles = nextTilesByReel[reelIndex];
@@ -288,6 +293,9 @@ export class ReelView extends Container {
     if (wins.length === 0) {
       return;
     }
+    // ─────────────────────────────────────────────
+    // Win Emphasis / Temporary Mask Release
+    // ─────────────────────────────────────────────
     // Reel masks are required while symbols spin and cascade, but they would
     // clip the win punch at the 120px reel boundary. During the settled win
     // beat, temporarily release those masks so the 1.07x tile can breathe
@@ -307,7 +315,7 @@ export class ReelView extends Container {
     for (const tiles of this.reelTiles) {
       allTiles.push(...tiles);
     }
-    // Keep the full win beat short even when several paylines hit. Each line
+    // Keep the win-read beat bounded even when several paylines hit. Each line
     // gets an immediate, readable symbol emphasis while the existing DEV
     // paylines remain visible and persistent.
     const beatDuration = Math.min(0.4, 1.2 / wins.length);
@@ -378,7 +386,7 @@ export class ReelView extends Container {
       }
       this.reelLayers[reelIndex].mask = mask ?? null;
     }
-    // Brief final read with all DEV paylines still visible before the cascade.
+    // Preserve one final all-payline read before control passes to the cascade.
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 180);
     });

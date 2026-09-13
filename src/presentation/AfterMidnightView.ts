@@ -38,7 +38,7 @@ type ChoiceCard = {
   originalX: number;
 };
 // ─────────────────────────────────────────────
-// AFTER MIDNIGHT Presentation
+// After Midnight Presentation
 // ─────────────────────────────────────────────
 // The feature math lives in features/AfterMidnight.ts. This class owns only
 // choreography: entrance, interaction, reveal hierarchy, pacing, and cleanup.
@@ -132,7 +132,7 @@ export class AfterMidnightView extends Container {
         .stroke({ width: 3, color: 0x6a24a8, alpha: 0.92 });
       panel.addChild(panelFrame);
       // ─────────────────────────────────────────────
-      // Result hierarchy
+      // Result Hierarchy
       // ─────────────────────────────────────────────
       // Final result frame: a single opaque card keeps the payoff compact and
       // lets the multiplier own the center without adding more artwork.
@@ -219,7 +219,7 @@ export class AfterMidnightView extends Container {
       heroConfirmation.alpha = 0;
       overlay.addChild(heroConfirmation);
       // ─────────────────────────────────────────────
-      // Choice cards
+      // Choice Cards / Podium Labels
       // ─────────────────────────────────────────────
       const cards = new Map<MidnightChoice, ChoiceCard>();
       const idleTweens: gsap.core.Tween[] = [];
@@ -424,7 +424,7 @@ hitArea.on('pointerout', () => {
         backdropLayer.addChild(labelContainer);
       });
       // ─────────────────────────────────────────────
-      // Entrance: establish → invite → enable choices
+      // Entrance Choreography
       // ─────────────────────────────────────────────
       const entrance = gsap.timeline();
       entrance
@@ -540,7 +540,10 @@ hitArea.on('pointerout', () => {
       .filter((choice) => choice !== selectedChoice)
       .map((choice) => cards.get(choice))
       .filter((card): card is ChoiceCard => card !== undefined);
-    // Final-payoff atmosphere: repeat only the item the player actually chose.
+    // ─────────────────────────────────────────────
+    // Selected-Item Atmosphere
+    // ─────────────────────────────────────────────
+    // Repeat only the item the player actually chose in the final-payoff atmosphere.
     // Fixed placements keep the composition intentional and reproducible while
     // varied scale/rotation/drift prevents the echoes from reading like a grid.
     // The exact displayed mystery-item size remains the baseline.
@@ -623,6 +626,9 @@ hitArea.on('pointerout', () => {
         },
       };
     });
+    // ─────────────────────────────────────────────
+    // Reveal Choreography
+    // ─────────────────────────────────────────────
     const revealCardFace = (
       card: ChoiceCard,
       multiplier: number,
@@ -646,7 +652,7 @@ hitArea.on('pointerout', () => {
         finish();
       },
     });
-    // Beat 1 — click acknowledgement. The card/object pops; the podium label lives
+    // Beat 1 — Selection acknowledgement. The card/object pops; the podium label lives
     // in the backdrop layer and therefore remains visually planted.
     timeline
       .to(selectedCard.selectionRing, {
@@ -666,7 +672,7 @@ hitArea.on('pointerout', () => {
         duration: 0.14,
         ease: 'power2.inOut',
       });
-    // Beat 2 — silence the rest of the interface and create anticipation.
+    // Beat 2 — Suppress competing choices and establish anticipation.
     passiveCards.forEach((card) => {
       timeline.to(card.container, {
         alpha: 0.32,
@@ -691,7 +697,7 @@ hitArea.on('pointerout', () => {
         duration: 0.38,
         ease: 'power1.inOut',
       }, 0.28);
-    // Beat 3 — selected result reveal. Keep the card physically stable: fade the
+    // Beat 3 — Selected result reveal. Keep the card physically stable: fade the
     // mystery artwork away, swap the face, then let the multiplier pop into place.
     timeline
       .to(selectedCard.artwork, {
@@ -713,10 +719,10 @@ hitArea.on('pointerout', () => {
         duration: 0.18,
         ease: 'back.out(1.5)',
       }, 0.84);
-    // Beat 4 — give the selected result a real recognition hold before revealing
+    // Beat 4 — Recognition hold. Give the selected result time to register before revealing
     // the unchosen outcomes. The player should have time to read what they won.
     timeline.to({}, { duration: 0.36 });
-    // Beat 5 — reveal the other two outcomes quickly and consistently.
+    // Beat 5 — Passive reveal. Expose the two unchosen outcomes quickly and consistently.
     passiveCards.forEach((card, index) => {
       const passiveMultiplier = resolveChoice(card.choice);
       const start = 1.48 + index * 0.19;
@@ -746,7 +752,7 @@ hitArea.on('pointerout', () => {
           ease: 'power2.out',
         }, start + 0.14);
     });
-    // Beat 6 — settle the card comparison, then deliberately hand visual control
+    // Beat 6 — Hero handoff. Settle the comparison, then hand visual control
     // to one centralized result. This is the feature's payoff frame.
     const heroStart = 2.08;
     timeline.call(() => {
@@ -832,10 +838,10 @@ hitArea.on('pointerout', () => {
         duration: 0.18,
         ease: 'power1.out',
       }, heroStart + 0.42);
-    // Beat 7 — recognition hold. Give the player enough time to register the
-    // centered result before the presentation hands control back to the base game.
+    // Beat 7 — Hero recognition hold. Keep the centralized result readable before
+    // presentation hands control back to the base game.
     timeline.to({}, { duration: 3.1 });
-    // Beat 8 — compact the result before the modal goes away. This makes the
+    // Beat 8 — Exit handoff. Compact the result before the modal leaves so the
     // subsequent base-game multiplier indicator feel like the continuation of
     // the same state rather than an unrelated UI pop.
     timeline

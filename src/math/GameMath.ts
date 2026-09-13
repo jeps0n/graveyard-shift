@@ -7,9 +7,11 @@ import type {
 import { PAYLINES } from './Paylines';
 import { PAYTABLE } from './Paytable';
 import { rng } from './RNG';
-// Each reel has its own weighted symbol distribution.
-// Higher weights make a symbol more common on that reel.
-// These weights are converted into discrete reel strips below.
+// ─────────────────────────────────────────────
+// Reel Model / Symbol Distribution
+// ─────────────────────────────────────────────
+// Each reel owns an independent weighted symbol distribution. Higher weights
+// increase that symbol's frequency; discrete reel strips preserve those ratios.
 const REEL_WEIGHTS: Record<SymbolId, number[]> = {
   coffee: [12, 12, 13, 13, 13],
   burger: [11, 11, 11, 12, 12],
@@ -23,9 +25,8 @@ const REEL_WEIGHTS: Record<SymbolId, number[]> = {
   marge: [2, 2, 2, 1, 1],
   scatter: [2, 2, 2, 2, 1],
 };
-// Convert weighted symbol counts into a discrete reel strip.
-// Selecting a random position from the strip gives each symbol
-// a probability proportional to its weight.
+// Materialize each reel's weights as a discrete strip. Uniformly selecting a
+// strip position then produces symbol probabilities proportional to the weights.
 function buildReel(reelIndex: number): SymbolId[] {
   const strip: SymbolId[] = [];
   for (const symbol of Object.keys(
@@ -42,6 +43,11 @@ function buildReel(reelIndex: number): SymbolId[] {
 const REEL_STRIPS = [0, 1, 2, 3, 4].map(
   buildReel,
 );
+// ─────────────────────────────────────────────
+// Math Trace Contracts
+// ─────────────────────────────────────────────
+// Trace structures make every RNG draw, payline decision, and cascade step
+// inspectable without coupling the math engine to DEV presentation.
 export interface RngDrawTrace {
   reel: number;
   row: number;
@@ -88,8 +94,11 @@ function cloneGrid(
 ): ReelGrid {
   return grid.map((reel) => [...reel]);
 }
-// Draw one symbol from the selected reel's weighted strip.
-// The trace records the draw so a spin can be reproduced and inspected.
+// ─────────────────────────────────────────────
+// Primary Grid Generation
+// ─────────────────────────────────────────────
+// Every draw records its raw RNG value and resolved strip index so the generated
+// grid can be audited and reproduced from the captured trace.
 function randomSymbol(
   reelIndex: number,
   row: number,
@@ -144,6 +153,9 @@ function getWinningPositions(
       row,
     }));
 }
+// ─────────────────────────────────────────────
+// Payline Evaluation
+// ─────────────────────────────────────────────
 // Evaluate a single payline from left to right.
 // Marge is a best-pay wild: evaluate every eligible regular symbol
 // plus Marge herself, then award the single highest-paying valid result.
@@ -285,8 +297,11 @@ export function evaluateWins(
     evaluations,
   };
 }
-// null represents an empty position during cascade processing.
-// Scatter remains a real game symbol and is never used as an empty marker.
+// ─────────────────────────────────────────────
+// Cascade Resolution
+// ─────────────────────────────────────────────
+// `null` is reserved for temporary cascade vacancies. Scatter remains a real
+// game symbol and is never overloaded as an empty-position sentinel.
 function removeWinningSymbols(
   grid: ReelGrid,
   wins: WinResult[],
@@ -369,12 +384,8 @@ function refillReels(
   grid: ReelGrid;
   draws: RngDrawTrace[];
 } {
-  /*
-   * This is the strict type boundary:
-   *
-   * nullable cascade state goes in,
-   * fully populated ReelGrid comes out.
-   */
+  // Strict type boundary: nullable cascade state enters; a fully populated
+  // ReelGrid leaves. No empty position may escape the refill step.
   const result: ReelGrid = [];
   const draws: RngDrawTrace[] = [];
   for (let reel = 0; reel < 5; reel++) {
@@ -501,9 +512,8 @@ export function resolveCascadeStep(
     refillDraws: refill.draws,
   };
 }
-// Resolve cascades until the current grid produces no wins.
-// Each step records the winning grid, payout, and resulting grid
-// so the presentation layer can animate the complete sequence.
+// Resolve cascades to exhaustion. Every step captures the evaluated grid, wins,
+// removals, collapse, and refill so presentation can replay the exact sequence.
 export function resolveCascades(
   initialGrid: ReelGrid,
 ): CascadeResult {

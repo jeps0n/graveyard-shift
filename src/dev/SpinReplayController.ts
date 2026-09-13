@@ -1,6 +1,11 @@
 import type { ReelGrid, WinResult } from '../game/types';
 import { GameView } from '../presentation/GameView';
 const CASCADE_DELAY = 800;
+// ─────────────────────────────────────────────
+// Replay Snapshot Contracts
+// ─────────────────────────────────────────────
+// Replay stores resolved outcomes rather than rerunning RNG, preserving exact
+// historical math while allowing presentation to be played again independently.
 export interface ReplayCascadeStep {
   readonly removed: Array<{ reel: number; row: number }>;
   readonly grid: ReelGrid;
@@ -37,6 +42,9 @@ function delay(ms: number): Promise<void> {
     setTimeout(resolve, ms);
   });
 }
+// ─────────────────────────────────────────────
+// Spin Replay Orchestration
+// ─────────────────────────────────────────────
 export class SpinReplayController {
   private replay: LastSpinReplay | null = null;
   private replayInProgress = false;
@@ -68,19 +76,19 @@ export class SpinReplayController {
     this.view.setSpinEnabled(false);
     this.view.clearWinningPaylines();
     try {
-      // Restore the exact historical state before SPIN was pressed.
+      // Restore the captured pre-spin state before replaying any presentation beat.
       this.view.displayResult(replay.preSpinGrid);
       this.view.updateReplayHud(
         replay.balanceBeforeBet,
         replay.wager,
         0,
       );
-      // Reproduce the exact same financial presentation used by LIVE.
+      // Preserve LIVE financial choreography: wager deduction occurs before reels move.
       await this.view.animateBalanceDeductionBeat(
         replay.balanceBeforeBet,
         replay.balanceAfterBet,
       );
-      // Replay the captured spin presentation.
+      // Reuse the live reel/cascade presentation against captured outcomes only.
       await this.view.animateSpin();
       await this.view.animateReelStops(replay.primaryGrid);
       const cumulativeWins = cloneWins(replay.primaryWins);
@@ -101,8 +109,8 @@ export class SpinReplayController {
           await this.view.animateWinningSymbols(cascade.wins);
         }
       }
-      // Match live payout presentation exactly: paint the complete final
-      // financial state once, then run the same WIN -> BALANCE beat cadence.
+      // Match LIVE settlement exactly: establish the final state once, then reuse
+      // the same WIN → BALANCE payout cadence.
       this.view.displayResult(replay.finalGrid);
       this.view.displayWinningPaylines(replay.allWins);
       this.view.updateReplayHud(
@@ -117,8 +125,8 @@ export class SpinReplayController {
           replay.totalWin,
         );
       }
-      // Deliberate settlement/readability hold. Replay availability remains
-      // disabled until this completes and the live HUD is restored below.
+      // Keep replay unavailable through the settlement hold; restore the live HUD
+      // before exposing replay again so DEV never leaves historical state on screen.
       await delay(200);
       return true;
     } finally {
