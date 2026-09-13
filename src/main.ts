@@ -22,23 +22,18 @@ gameHost.className = 'game-host';
 const footerArtworkPlaceholder = document.createElement('footer');
 footerArtworkPlaceholder.className = 'portfolio-footer';
 footerArtworkPlaceholder.setAttribute('aria-label', 'Technical demonstration details');
-
 const footerLabel = document.createElement('span');
 footerLabel.className = 'portfolio-footer__label';
 footerLabel.textContent = 'TECHNICAL DEMONSTRATION BY';
-
 const footerName = document.createElement('span');
 footerName.className = 'portfolio-footer__name';
 footerName.textContent = 'jeff samson';
-
 const footerDivider = document.createElement('span');
 footerDivider.className = 'portfolio-footer__divider';
 footerDivider.setAttribute('aria-hidden', 'true');
-
 const footerTech = document.createElement('span');
 footerTech.className = 'portfolio-footer__tech';
 footerTech.textContent = 'VITE · TYPESCRIPT · PIXIJS · GSAP';
-
 const footerContent = document.createElement('div');
 footerContent.className = 'portfolio-footer__content';
 footerContent.append(footerLabel, footerName, footerDivider, footerTech);
@@ -57,22 +52,17 @@ const localsBarContent = document.createElement('span');
 localsBarContent.className = 'locals-bar-trigger__content';
 const localsBarPrefix = document.createElement('span');
 localsBarPrefix.textContent = 'Meet the';
-
 const localsBarSpace1 = document.createElement('span');
 localsBarSpace1.setAttribute('aria-hidden', 'true');
 localsBarSpace1.textContent = '\u00A0';
-
 const localsBarEmphasis = document.createElement('span');
 localsBarEmphasis.className = 'locals-bar-trigger__emphasis';
 localsBarEmphasis.textContent = 'Dead End';
-
 const localsBarSpace2 = document.createElement('span');
 localsBarSpace2.setAttribute('aria-hidden', 'true');
 localsBarSpace2.textContent = '\u00A0';
-
 const localsBarSuffix = document.createElement('span');
 localsBarSuffix.textContent = 'Locals';
-
 localsBarContent.append(
   localsBarPrefix,
   localsBarSpace1,
@@ -177,11 +167,13 @@ game.setLastSpinReplayAvailableHandler((available) => {
 game.setAfterMidnightDevTriggerConsumedHandler(() => {
   devModeController.markAfterMidnightConsumed();
 });
+game.setAfterMidnightDevAvailabilityHandler((available) => {
+  devModeController.setAfterMidnightAvailable(available);
+});
 function resizeGame(): void {
   const width = Math.max(1, gameHost.clientWidth);
   const height = Math.max(1, gameHost.clientHeight);
   app.renderer.resize(width, height);
-
   // Reserve only the Locals bar's minimum responsive height for gameplay
   // layout. The visible bar is allowed to grow downward afterward to meet the
   // cabinet exactly, so it absorbs unused top space without moving/rescaling
@@ -197,13 +189,11 @@ function resizeGame(): void {
   const playableTop = reservedTopBarHeight;
   const playableBottom = Math.max(playableTop + 1, height - reservedFooterBarHeight);
   const playableHeight = Math.max(1, playableBottom - playableTop);
-
   const scaleX = width / GAME_WIDTH;
   const scaleY = playableHeight / GAME_HEIGHT;
   const scale = Math.min(scaleX, scaleY);
   game.view.scale.set(scale);
   game.view.x = (width - GAME_WIDTH * scale) / 2;
-
   // Prefer the established reel-centered composition, but clamp the translated
   // GameView into the reserved playable region so cabinet art and controls can
   // never slide underneath either persistent bar.
@@ -215,7 +205,6 @@ function resizeGame(): void {
   const minY = playableTop;
   const maxY = playableBottom - GAME_HEIGHT * scale;
   game.view.y = Math.min(Math.max(desiredY, minY), Math.max(minY, maxY));
-
   // Grow the visible Locals bar into the otherwise-empty space above the
   // cabinet. This is presentation-only: the GameView position/scale above has
   // already been resolved from the reserved minimum bar height.
@@ -224,7 +213,6 @@ function resizeGame(): void {
     Math.ceil(game.view.y)
   );
   localsBarPlaceholder.style.height = `${flushLocalsHeight}px`;
-
   // Mirror the same treatment at the bottom: keep only the footer's minimum
   // usable height reserved for gameplay, then grow the visible footer upward
   // into any otherwise-empty space below the cabinet. This keeps the footer

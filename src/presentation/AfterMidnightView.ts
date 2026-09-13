@@ -9,714 +9,900 @@ import {
 import { GlowFilter } from 'pixi-filters';
 import { gsap } from 'gsap';
 import type { MidnightChoice } from '../features/AfterMidnight';
-
 const GAME_WIDTH = 1000;
 const GAME_HEIGHT = 800;
-
+const PANEL_WIDTH = 640;
+const PANEL_HEIGHT = 410;
+const PANEL_X = 500;
+const PANEL_Y = 289;
+const CARD_WIDTH = 100;
+const CARD_HEIGHT = 100;
+const CARD_Y = 256;
+const CARD_X = [319, 500, 683] as const;
+const CHOICES: MidnightChoice[] = ['gasCan', 'candyBar', 'plushDoll'];
+const LABELS: Record<MidnightChoice, string> = {
+  gasCan: 'GAS CAN',
+  candyBar: 'CANDY BAR',
+  plushDoll: 'PLUSH DOLL',
+};
+type ChoiceCard = {
+  choice: MidnightChoice;
+  container: Container;
+  labelContainer: Container;
+  hitArea: Graphics;
+  surface: Graphics;
+  selectionRing: Graphics;
+  artwork: Sprite;
+  artworkGlow: GlowFilter;
+  multiplier: Text;
+  originalX: number;
+};
 // ─────────────────────────────────────────────
 // AFTER MIDNIGHT Presentation
 // ─────────────────────────────────────────────
-// Owns the bonus feature's visual presentation, interaction, animation,
-// reveal flow, and animation cleanup. Feature outcome logic remains in
-// features/AfterMidnight.ts.
+// The feature math lives in features/AfterMidnight.ts. This class owns only
+// choreography: entrance, interaction, reveal hierarchy, pacing, and cleanup.
 export class AfterMidnightView extends Container {
   async show(
-    resolveChoice: (
-      choice: MidnightChoice,
-    ) => number,
+    resolveChoice: (choice: MidnightChoice) => number,
   ): Promise<number> {
-    // ─────────────────────────────────────────────
-    // Asset Loading
-    // ─────────────────────────────────────────────
-    // Choice artwork remains separate so each sprite can animate independently.
+    const [gasCanTexture, candyBarTexture, plushDollTexture, backdropTexture] =
+      await Promise.all([
+        Assets.load<Texture>(
+          new URL('../after-midnight/gasCan.png', import.meta.url).href,
+        ),
+        Assets.load<Texture>(
+          new URL('../after-midnight/candyBar.png', import.meta.url).href,
+        ),
+        Assets.load<Texture>(
+          new URL('../after-midnight/plushDoll.png', import.meta.url).href,
+        ),
+        Assets.load<Texture>(
+          new URL('../after-midnight/backdrop.png', import.meta.url).href,
+        ),
+      ]);
     const textures: Record<MidnightChoice, Texture> = {
-      gasCan: await Assets.load<Texture>(
-        new URL('../after-midnight/gasCan.png', import.meta.url).href,
-      ),
-      candyBar: await Assets.load<Texture>(
-        new URL('../after-midnight/candyBar.png', import.meta.url).href,
-      ),
-      plushDoll: await Assets.load<Texture>(
-        new URL('../after-midnight/plushDoll.png', import.meta.url).href,
-      ),
+      gasCan: gasCanTexture,
+      candyBar: candyBarTexture,
+      plushDoll: plushDollTexture,
     };
-    // Backdrop contains the static feature artwork and framing.
-    const backdropTexture = await Assets.load<Texture>(
-      new URL('../after-midnight/backdrop.png', import.meta.url).href,
-    );
     return new Promise((resolve) => {
-      // ─────────────────────────────────────────────
-      // Feature Overlay
-      // ─────────────────────────────────────────────
-      const overlay = new Container();
-      overlay.alpha = 0;
-      // Dims the main game behind the feature modal.
-      const backdrop = new Graphics()
-        .rect(0, 0, GAME_WIDTH, GAME_HEIGHT)
-        .fill({ color: 0x05070a, alpha: 0.78 });
-      overlay.addChild(backdrop);
-      // ─────────────────────────────────────────────
-      // Feature Panel / Backdrop
-      // ─────────────────────────────────────────────
-      const panel = new Container();
-      const panelBackdrop = new Sprite(backdropTexture);
-      panelBackdrop.anchor.set(0.5);
-      panelBackdrop.width = 640;
-      panelBackdrop.height = 410;
-      panelBackdrop.x = 0;
-      panelBackdrop.y = 0;
-      panel.addChild(panelBackdrop);
-      // Clips the backdrop to the rounded modal shape.
-      const panelMask = new Graphics()
-        .roundRect(-320, -205, 640, 410, 24)
-        .fill(0xffffff);
-      panel.addChild(panelMask);
-      panelBackdrop.mask = panelMask;
-      // Reveal wash sits above the illustrated backdrop but below the modal
-      // frame and choice cards. It stays invisible until the player picks.
-      const revealWash = new Graphics()
-        .roundRect(-320, -205, 640, 410, 24)
-        .fill({
-          color: 0x100817,
-          alpha: 1,
-        });
-      revealWash.alpha = 0;
-      panel.addChild(revealWash);
-      // Modal frame.
-      const panelFrame = new Graphics()
-        .roundRect(-320, -205, 640, 410, 24)
-        .stroke({
-          width: 3,
-          color: 0x6a24a8,
-        });
-      panel.addChild(panelFrame);
-      panel.x = 500;
-      panel.y = 289;
-      panel.scale.set(0.96);
-      overlay.addChild(panel);
-      // ─────────────────────────────────────────────
-      // Feature Header
-      // ─────────────────────────────────────────────
-      // Backdrop currently supplies the visible feature title/subtitle artwork.
-      const title = new Text({
-        // text: 'AFTER MIDNIGHT',
-        text: '',
-        style: {
-          fill: 0xffffff,
-          fontSize: 38,
-          fontWeight: 'bold',
-        },
-      });
-      title.anchor.set(0.5);
-      title.x = GAME_WIDTH / 2;
-      title.y = 225;
-      overlay.addChild(title);
-      const subtitle = new Text({
-        // text: 'PICK YOUR FATE',
-        text: '',
-        style: {
-          fill: 0x999999,
-          fontSize: 18,
-        },
-      });
-      subtitle.anchor.set(0.5);
-      subtitle.x = GAME_WIDTH / 2;
-      subtitle.y = 265;
-      overlay.addChild(subtitle);
-      // ─────────────────────────────────────────────
-      // Choice Configuration
-      // ─────────────────────────────────────────────
-      // Choice identifiers map directly to their artwork and game-state keys.
-      const choices: MidnightChoice[] = [
-        'gasCan',
-        'candyBar',
-        'plushDoll',
-      ];
-      const labels: Record<MidnightChoice, string> = {
-        gasCan: 'Gas Can',
-        candyBar: 'Candy Bar',
-        plushDoll: 'Plush Doll',
-      };
-      // Fixed horizontal placement keeps all three choices aligned
-      // with the visual composition of the feature backdrop.
-      const xPositions = [300, 500, 700];
-      const cards = new Map<
-        MidnightChoice,
-        {
-          container: Container;
-          button: Graphics;
-          label: Text;
-          multiplier: Text;
-          artwork: Sprite;
-          textPlate: Graphics;
-          revealCard: Graphics;
-        }
-      >();
       let selected = false;
       let selectedMultiplier = 1;
+      let completed = false;
+      const overlay = new Container();
+      overlay.alpha = 0;
+      this.addChild(overlay);
       // ─────────────────────────────────────────────
-      // Feature Footer
+      // Stage / dimmer
       // ─────────────────────────────────────────────
-      const footer = new Text({
-        // text: 'ONE CHOICE. ONE MULTIPLIER. NEXT SPIN ONLY.',
-        text: '',
+      const dimmer = new Graphics()
+        .rect(0, 0, GAME_WIDTH, GAME_HEIGHT)
+        .fill({ color: 0x030407, alpha: 0.88 });
+      dimmer.alpha = 0;
+      overlay.addChild(dimmer);
+      // ─────────────────────────────────────────────
+      // Locked modal artwork + fixed modal position
+      // ─────────────────────────────────────────────
+      const panel = new Container();
+      panel.x = PANEL_X;
+      panel.y = PANEL_Y;
+      panel.alpha = 0;
+      panel.scale.set(0.985);
+      overlay.addChild(panel);
+      const panelMask = new Graphics()
+        .roundRect(
+          -PANEL_WIDTH / 2,
+          -PANEL_HEIGHT / 2,
+          PANEL_WIDTH,
+          PANEL_HEIGHT,
+          24,
+        )
+        .fill(0xffffff);
+      panel.addChild(panelMask);
+      const backdropLayer = new Container();
+      panel.addChildAt(backdropLayer, 0);
+      const panelBackdrop = new Sprite(backdropTexture);
+      panelBackdrop.anchor.set(0.5);
+      panelBackdrop.width = PANEL_WIDTH;
+      panelBackdrop.height = PANEL_HEIGHT;
+      panelBackdrop.mask = panelMask;
+      backdropLayer.addChild(panelBackdrop);
+      // A controlled low-opacity veil gives us presentation hierarchy without
+      // altering the locked artwork itself.
+      const panelVeil = new Graphics()
+        .roundRect(
+          -PANEL_WIDTH / 2,
+          -PANEL_HEIGHT / 2,
+          PANEL_WIDTH,
+          PANEL_HEIGHT,
+          24,
+        )
+        .fill({ color: 0x09060f, alpha: 0.74 });
+      panelVeil.alpha = 0;
+      panel.addChild(panelVeil);
+      const panelFrame = new Graphics()
+        .roundRect(
+          -PANEL_WIDTH / 2,
+          -PANEL_HEIGHT / 2,
+          PANEL_WIDTH,
+          PANEL_HEIGHT,
+          24,
+        )
+        .stroke({ width: 3, color: 0x6a24a8, alpha: 0.92 });
+      panel.addChild(panelFrame);
+      // ─────────────────────────────────────────────
+      // Result hierarchy
+      // ─────────────────────────────────────────────
+      // Final result frame: a single opaque card keeps the payoff compact and
+      // lets the multiplier own the center without adding more artwork.
+      const heroFrame = new Graphics()
+        .roundRect(-118, -86, 236, 172, 18)
+        .fill({ color: 0x09070e, alpha: 0.97 })
+        .stroke({ width: 3, color: 0xc75cff, alpha: 0.95 });
+      // Selected-item echoes live inside the modal and behind the final result.
+      // IMPORTANT: use a dedicated mask for this overlay layer. Reusing panelMask
+      // here makes one Graphics object mask children in two different transform
+      // spaces (panel-local and overlay-local), which can clip the backdrop at
+      // responsive scales.
+      const choiceEchoMask = new Graphics()
+        .roundRect(
+          PANEL_X - PANEL_WIDTH / 2,
+          PANEL_Y - PANEL_HEIGHT / 2,
+          PANEL_WIDTH,
+          PANEL_HEIGHT,
+          24,
+        )
+        .fill(0xffffff);
+      overlay.addChild(choiceEchoMask);
+      const choiceEchoLayer = new Container();
+      choiceEchoLayer.x = PANEL_X;
+      choiceEchoLayer.y = PANEL_Y;
+      choiceEchoLayer.alpha = 0;
+      choiceEchoLayer.mask = choiceEchoMask;
+      overlay.addChild(choiceEchoLayer);
+      heroFrame.x = GAME_WIDTH / 2;
+      heroFrame.y = PANEL_Y;
+      heroFrame.alpha = 0;
+      overlay.addChild(heroFrame);
+      const heroCaption = new Text({
+        text: 'NEXT SPIN',
         style: {
-          fill: 0x777777,
+          fill: 0xd5c6df,
+          fontFamily: 'monospace',
           fontSize: 14,
+          fontWeight: 'bold',
+          letterSpacing: 3.4,
         },
       });
-      footer.anchor.set(0.5);
-      footer.x = GAME_WIDTH / 2;
-      footer.y = 510;
-      overlay.addChild(footer);
+      heroCaption.anchor.set(0.5);
+      heroCaption.x = GAME_WIDTH / 2;
+      heroCaption.y = PANEL_Y - 52;
+      heroCaption.alpha = 0;
+      overlay.addChild(heroCaption);
+      const heroMultiplier = new Text({
+        text: '',
+        style: {
+          fill: 0xe9c8ff,
+          fontFamily: 'monospace',
+          fontSize: 104,
+          fontWeight: 'bold',
+          stroke: { color: 0x5f118a, width: 5 },
+        },
+      });
+      heroMultiplier.anchor.set(0.5);
+      heroMultiplier.x = GAME_WIDTH / 2;
+      heroMultiplier.y = PANEL_Y;
+      heroMultiplier.alpha = 0;
+      heroMultiplier.scale.set(0.6);
+      overlay.addChild(heroMultiplier);
+      const heroGlow = new GlowFilter({
+        color: 0xc65cff,
+        distance: 22,
+        outerStrength: 2.2,
+        innerStrength: 0.35,
+      });
+      heroMultiplier.filters = [heroGlow];
+      const heroConfirmation = new Text({
+        text: 'MULTIPLIER',
+        style: {
+          fill: 0xffffff,
+          fontFamily: 'monospace',
+          fontSize: 13,
+          fontWeight: 'bold',
+          letterSpacing: 3.2,
+        },
+      });
+      heroConfirmation.anchor.set(0.5);
+      heroConfirmation.x = GAME_WIDTH / 2;
+      heroConfirmation.y = PANEL_Y + 58;
+      heroConfirmation.alpha = 0;
+      overlay.addChild(heroConfirmation);
       // ─────────────────────────────────────────────
-      // Choice Cards
+      // Choice cards
       // ─────────────────────────────────────────────
-      choices.forEach((choice, index) => {
+      const cards = new Map<MidnightChoice, ChoiceCard>();
+      const idleTweens: gsap.core.Tween[] = [];
+      const setCardSurface = (
+        surface: Graphics,
+        options: {
+          fillAlpha: number;
+          borderColor: number;
+          borderAlpha: number;
+          borderWidth: number;
+        },
+      ): void => {
+        surface.clear()
+          .roundRect(
+            -CARD_WIDTH / 2,
+            -CARD_HEIGHT / 2,
+            CARD_WIDTH,
+            CARD_HEIGHT,
+            18,
+          )
+          .fill({ color: 0x09070e, alpha: options.fillAlpha })
+          .stroke({
+            width: options.borderWidth,
+            color: options.borderColor,
+            alpha: options.borderAlpha,
+          });
+      };
+      CHOICES.forEach((choice, index) => {
         const card = new Container();
-        card.x = xPositions[index];
-        card.y = 330;
+        card.x = CARD_X[index];
+        card.y = CARD_Y - 34;
         card.alpha = 0;
-        card.scale.set(0.82);
-        // Invisible 160×140 interaction area.
-        // Visual hover feedback is handled separately.
-        const button = new Graphics()
-          .roundRect(-80, -70, 160, 140, 16)
-          .fill({
-            color: 0xffffff,
-            alpha: 0,
-          })
-          .stroke({
-            width: 0,
-            color: 0xffffff,
-          });
-        card.addChild(button);
-        // Full reveal card stays hidden during the initial pick state. After the
-        // backdrop falls away, it fades in to visually complete each choice before
-        // the cards flip to their multiplier faces.
-        const revealCard = new Graphics()
-          .roundRect(-80, -70, 160, 140, 16)
-          .fill({
-            color: 0x12091b,
-            alpha: 0.96,
-          })
-          .stroke({
-            width: 2,
-            color: 0x6a24a8,
-            alpha: 0.88,
-          });
-        revealCard.alpha = 0;
-        card.addChild(revealCard);
-        // Readability plate keeps labels/multipliers legible over the busy backdrop.
-        const textPlate = new Graphics()
-          .roundRect(-62, 6, 124, 62, 10)
-          .fill({
-            color: 0x09070f,
-            alpha: 0.72,
-          })
-          .stroke({
-            width: 1,
-            color: 0x6a24a8,
-            alpha: 0.55,
-          });
-        card.addChild(textPlate);
-        // ─────────────────────────────────────────────
-        // Choice Artwork
-        // ─────────────────────────────────────────────
-        const artwork = new Sprite(textures[choice]);
-        // Glow is attached to the artwork rather than the hitbox.
-        const artworkGlow = new GlowFilter({
-          color: 0xe8dfff,
-          distance: 15,
-          outerStrength: 2,
-          innerStrength: 0.5,
+        card.scale.set(0.9);
+        const surface = new Graphics();
+        setCardSurface(surface, {
+          fillAlpha: 0.58,
+          borderColor: 0x7a568d,
+          borderAlpha: 0.54,
+          borderWidth: 1.5,
         });
-        artwork.filters = [artworkGlow];
-        artworkGlow.enabled = false;
+        card.addChild(surface);
+        const selectionRing = new Graphics()
+          .roundRect(
+            -CARD_WIDTH / 2 - 5,
+            -CARD_HEIGHT / 2 - 5,
+            CARD_WIDTH + 10,
+            CARD_HEIGHT + 10,
+            21,
+          )
+          .stroke({ width: 2, color: 0xd9b7ff, alpha: 0.95 });
+        selectionRing.alpha = 0;
+        card.addChild(selectionRing);
+        const artwork = new Sprite(textures[choice]);
         artwork.anchor.set(0.5);
-        artwork.x = 0;
-        artwork.y = -34;
-        const maxArtworkSize = 100;
+        artwork.y = 0;
+        const maxArtworkSize = 98;
         const artworkScale = Math.min(
           maxArtworkSize / artwork.texture.width,
           maxArtworkSize / artwork.texture.height,
         );
         artwork.scale.set(artworkScale);
         artwork.eventMode = 'none';
-        card.addChild(artwork);
-        // Subtle idle motion keeps the choices visually alive
-        gsap.to(artwork, {
-          y: -38,
-          duration: 1.8 + index * 0.15,
-          yoyo: true,
-          repeat: -1,
-          ease: 'sine.inOut',
-          delay: index * 0.2,
+        const artworkGlow = new GlowFilter({
+          color: 0xe8dfff,
+          distance: 15,
+          outerStrength: 1.7,
+          innerStrength: 0.25,
         });
-        // ─────────────────────────────────────────────
-        // Choice Label
-        // ─────────────────────────────────────────────
+        artworkGlow.enabled = false;
+        artwork.filters = [artworkGlow];
+        card.addChild(artwork);
+        // Podium label treatment: preserve the exact approved geometry/style and
+        // screen placement, but parent it to the locked backdrop so it behaves like
+        // part of that artwork instead of part of the animated choice card.
+        const labelContainer = new Container();
+        labelContainer.x = CARD_X[index] - PANEL_X;
+        labelContainer.y = CARD_Y - PANEL_Y - 1;
+        labelContainer.alpha = 1;
+        labelContainer.scale.set(1);
+        const labelPlate = new Graphics()
+          .roundRect(-40, 56, 80, 22, 4)
+          .fill({ color: 0x050408, alpha: 0.5 })
+          .stroke({ width: 0.5, color: 0xb78a4b, alpha: 0.8 });
+        labelContainer.addChild(labelPlate);
         const label = new Text({
-          text: labels[choice],
+          text: LABELS[choice],
           style: {
-            fill: 0xffffff,
-            fontSize: 13,
-            fontWeight: 'bold',
+            fill: 0xf0d7a0,
+            fontFamily: 'monospace',
+            fontSize: 12,
+            fontWeight: 'normal',
+            letterSpacing: 0.75,
           },
         });
         label.anchor.set(0.5);
-        label.y = 26;
-        card.addChild(label);
-        // ─────────────────────────────────────────────
-        // Multiplier Display
-        // ─────────────────────────────────────────────
+        label.y = 68.5;
+        labelContainer.addChild(label);
         const multiplier = new Text({
-          // text: '?',
           text: '',
           style: {
-            fill: 0xb56cff,
-            fontSize: 42,
+            fill: 0xf0d9ff,
+            fontFamily: 'monospace',
+            fontSize: 48,
             fontWeight: 'bold',
+            stroke: { color: 0x5f118a, width: 3 },
           },
         });
         multiplier.anchor.set(0.5);
-        multiplier.y = 28;
+        multiplier.y = 1;
+        multiplier.alpha = 0;
         card.addChild(multiplier);
-        // ─────────────────────────────────────────────
-        // Hover Feedback
-        // ─────────────────────────────────────────────
-        // Hitbox remains 160×140; hover changes only visual feedback.
-        button.eventMode = 'static';
-        button.cursor = 'pointer';
-        button.on('pointerover', () => {
-          if (selected) {
-            return;
-          }
-          // Keep the red hover border.
-          button.clear()
-            .roundRect(-80, -70, 160, 140, 16)
-            .fill({
-              color: 0xffffff,
-              alpha: 0,
-            })
-            .stroke({
-              width: 3,
-              color: 0xe8dfff,
-            });
-          artworkGlow.enabled = true;
+        const hitArea = new Graphics()
+          .roundRect(
+            -CARD_WIDTH / 2,
+            -CARD_HEIGHT / 2,
+            CARD_WIDTH,
+            CARD_HEIGHT,
+            18,
+          )
+          .fill({ color: 0xffffff, alpha: 0.001 });
+        hitArea.eventMode = 'static';
+        hitArea.cursor = 'pointer';
+        card.addChild(hitArea);
+        const idleTween = gsap.to(artwork, {
+          y: artwork.y - 4,
+          duration: 1.9 + index * 0.12,
+          delay: index * 0.18,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut',
         });
-        button.on('pointerout', () => {
-          // Remove the hover border and artwork glow.
-          button.clear()
-            .roundRect(-80, -70, 160, 140, 16)
-            .fill({
-              color: 0xffffff,
-              alpha: 0,
-            })
-            .stroke({
-              width: 0,
-              color: 0xffffff,
-            });
-          artworkGlow.enabled = false;
-        });
-        // ─────────────────────────────────────────────
-        // Selection / Multiplier Reveal
-        // ─────────────────────────────────────────────
-        // Selection locks the feature, lets the illustrated world fall away,
-        // completes all three programmatic cards, then flips the chosen card
-        // first before the two passive reveals.
-        button.on('pointertap', () => {
-          if (selected) {
-            return;
-          }
+        idleTweens.push(idleTween);
+hitArea.on('pointerover', () => {
+  if (selected) return;
+  artworkGlow.enabled = true;
+  label.style.fill = 0xffffff;
+  gsap.to(selectionRing, {
+    alpha: 0.72,
+    duration: 0.12,
+    ease: 'power1.out',
+  });
+});
+hitArea.on('pointerout', () => {
+  if (selected) return;
+  artworkGlow.enabled = false;
+  label.style.fill = 0xf0d7a0;
+  gsap.to(selectionRing, {
+    alpha: 0,
+    duration: 0.12,
+    ease: 'power1.out',
+  });
+});
+        hitArea.on('pointertap', () => {
+          if (selected) return;
           selected = true;
           selectedMultiplier = resolveChoice(choice);
-          const selectedCard = cards.get(choice);
-          if (!selectedCard) {
-            return;
-          }
-
-          cards.forEach((other) => {
-            other.button.eventMode = 'none';
-            other.button.cursor = 'default';
-            other.artwork.filters = null;
+          cards.forEach((candidate) => {
+            candidate.hitArea.eventMode = 'none';
+            candidate.hitArea.cursor = 'default';
+            candidate.artworkGlow.enabled = false;
+            gsap.killTweensOf(candidate.container.scale);
+            gsap.killTweensOf(candidate.selectionRing);
           });
-
-          // Immediate acknowledgement: the chosen card answers the click, then
-          // settles before the slower transition into the reveal stage.
-          gsap.timeline()
-            .to(selectedCard.container.scale, {
-              x: 1.08,
-              y: 1.08,
-              duration: 0.12,
-              ease: 'power2.out',
-            })
-            .to(selectedCard.container.scale, {
-              x: 1,
-              y: 1,
-              duration: 0.14,
-              ease: 'power2.inOut',
-            });
-
-          // subtitle.text = 'YOUR NEXT SPIN MULTIPLIER';
-          // footer.text = 'THE NIGHT GOES QUIET…';
-
-          const revealTimeline = gsap.timeline({
-            onComplete: () => {
-              // footer.text = 'ONE SPIN ONLY. MAKE IT COUNT.';
-              gsap.to(overlay, {
-                alpha: 0,
-                delay: 1.2,
-                duration: 0.3,
-                ease: 'power2.in',
-                onComplete: () => {
-                  cards.forEach((card) => {
-                    gsap.killTweensOf(card.artwork);
-                    gsap.killTweensOf(card.container);
-                    gsap.killTweensOf(card.multiplier.scale);
-                    gsap.killTweensOf(card.revealCard);
-                  });
-                  gsap.killTweensOf(panel.scale);
-                  gsap.killTweensOf(panelBackdrop);
-                  gsap.killTweensOf(revealWash);
-                  gsap.killTweensOf(overlay);
-                  overlay.destroy({ children: true });
-                  resolve(selectedMultiplier);
-                },
-              });
+          idleTweens.forEach((tween) => tween.kill());
+          this.playRevealSequence({
+            overlay,
+            dimmer,
+            panel,
+            backdropLayer,
+            panelVeil,
+            choiceEchoLayer,
+            heroFrame,
+            heroCaption,
+            heroMultiplier,
+            heroConfirmation,
+            cards,
+            selectedChoice: choice,
+            selectedMultiplier,
+            resolveChoice,
+            setCardSurface,
+            finish: () => {
+              if (completed) return;
+              completed = true;
+              this.cleanupOverlay(overlay, cards);
+              resolve(selectedMultiplier);
             },
           });
-
-          // Beat 1: slowly let the illustrated feature artwork disappear into a
-          // purple-black void. The items remain visible while the world falls away.
-          revealTimeline
-            .to(revealWash, {
-              alpha: 0.96,
-              duration: 1.05,
-              ease: 'power1.inOut',
-            }, 0)
-            .to(panelBackdrop, {
-              alpha: 0.08,
-              duration: 1.05,
-              ease: 'power1.inOut',
-            }, 0);
-
-          // Beat 2: complete all three cards only after the wash is nearly settled.
-          // The original lower text plates disappear as the full card faces arrive.
-          cards.forEach((card) => {
-            revealTimeline
-              .to(card.revealCard, {
-                alpha: 1,
-                duration: 0.28,
-                ease: 'power2.out',
-              }, 0.82)
-              .to(card.textPlate, {
-                alpha: 0,
-                duration: 0.2,
-                ease: 'power1.out',
-              }, 0.82);
-          });
-
-          revealTimeline.call(() => {
-            // footer.text = 'TURN IT OVER.';
-          }, [], 1.18);
-
-          // Small tension beat before the chosen card flips.
-          revealTimeline.to({}, { duration: 0.2 });
-
-          // Beat 3: chosen card flips first. Collapse to its edge, swap the face,
-          // then open back up with the selected multiplier treated as the hero result.
-          revealTimeline
-            .to(selectedCard.container.scale, {
-              x: 0.04,
-              y: 1.03,
-              duration: 0.18,
-              ease: 'power2.in',
-            })
-            .call(() => {
-              gsap.killTweensOf(selectedCard.artwork);
-              selectedCard.artwork.visible = false;
-              selectedCard.label.visible = false;
-              selectedCard.multiplier.style.fontSize = 64;
-              selectedCard.multiplier.text = `×${selectedMultiplier}`;
-              selectedCard.multiplier.scale.set(1);
-              selectedCard.revealCard.clear()
-                .roundRect(-80, -70, 160, 140, 16)
-                .fill({
-                  color: 0x16091f,
-                  alpha: 0.98,
-                })
-                .stroke({
-                  width: 3,
-                  color: 0xb829ff,
-                  alpha: 1,
-                });
-            })
-            .to(selectedCard.container.scale, {
-              x: 1.1,
-              y: 1.1,
-              duration: 0.24,
-              ease: 'back.out(2)',
-            })
-            .to(selectedCard.container.scale, {
-              x: 1.04,
-              y: 1.04,
-              duration: 0.14,
-              ease: 'power2.out',
-            })
-            .to(selectedCard.multiplier.scale, {
-              x: 1.18,
-              y: 1.18,
-              duration: 0.12,
-              ease: 'power2.out',
-            }, '<')
-            .to(selectedCard.multiplier.scale, {
-              x: 1,
-              y: 1,
-              duration: 0.16,
-              ease: 'back.out(1.8)',
-            });
-
-          revealTimeline.call(() => {
-            // footer.text = 'THE OTHER TWO…';
-          }, [], '+=0.24');
-
-          // Beat 4: the remaining cards reveal passively, one after the other.
-          choices.forEach((otherChoice) => {
-            if (otherChoice === choice) {
-              return;
-            }
-            const other = cards.get(otherChoice);
-            if (!other) {
-              return;
-            }
-            const otherMultiplier = resolveChoice(otherChoice);
-            revealTimeline
-              .to(other.container.scale, {
-                x: 0.04,
-                y: 0.96,
-                duration: 0.15,
-                ease: 'power2.in',
-              }, '+=0.12')
-              .call(() => {
-                gsap.killTweensOf(other.artwork);
-                other.artwork.visible = false;
-                other.label.visible = false;
-                other.multiplier.style.fontSize = 36;
-                other.multiplier.style.fill = 0xffffff;
-                other.multiplier.text = `×${otherMultiplier}`;
-                other.multiplier.scale.set(1);
-                other.revealCard.clear()
-                  .roundRect(-80, -70, 160, 140, 16)
-                  .fill({
-                    color: 0x100817,
-                    alpha: 0.96,
-                  })
-                  .stroke({
-                    width: 2,
-                    color: 0xffffff,
-                    alpha: 1,
-                  });
-              })
-              .to(other.container.scale, {
-                x: 0.96,
-                y: 0.96,
-                duration: 0.2,
-                ease: 'back.out(1.5)',
-              });
-          });
-
-          // Beat 5: settle the three revealed outcomes into their final hierarchy.
-          // Passive cards recede while the selected result remains fully readable.
-          // No extra pulse is used here; the winning multiplier now transitions
-          // directly into the final takeover beat.
-          revealTimeline.call(() => {
-            cards.forEach((card, cardChoice) => {
-              card.container.alpha = cardChoice === choice ? 1 : 0.5;
-            });
-            footer.text = `×${selectedMultiplier} LOCKED IN`;
-          });
-
-          // Beat 6: the winning multiplier takes over the selected card face.
-          // After a short confirmation beat, it moves to the center and grows
-          // to its full-card resting size, overshoots slightly for one final hit,
-          // then settles back into the exact size that carries into the next spin.
-          revealTimeline
-            .call(() => {
-              // footer.text = `×${selectedMultiplier} ACTIVE NEXT SPIN`;
-            }, [], '+=0.16')
-            .to(selectedCard.multiplier, {
-              y: 0,
-              duration: 0.2,
-              ease: 'power2.out',
-            })
-            .to(
-              selectedCard.multiplier.scale,
-              {
-                x: 1.45,
-                y: 1.45,
-                duration: 0.24,
-                ease: 'power2.out',
-              },
-              '<',
-            )
-            .to(selectedCard.multiplier.scale, {
-              x: 1.70,
-              y: 1.70,
-              duration: 0.13,
-              ease: 'power2.out',
-            })
-            .to(selectedCard.multiplier.scale, {
-              x: 1.45,
-              y: 1.45,
-              duration: 0.20,
-              ease: 'back.out(1.4)',
-            })
-            .to(selectedCard.container.scale, {
-              x: 1.04,
-              y: 1.04,
-              duration: 0.12,
-              ease: 'power2.out',
-            });
-
-          // Beat 7: bookend the feature with a final confirmation wipe across
-          // only the winning card. The passive cards and modal background stay
-          // untouched so the wipe reads as a stamp on the selected multiplier.
-          revealTimeline
-            .call(() => {
-              const winningCardWipe = new Graphics()
-                .poly([
-                  -18, -90,
-                  12, -90,
-                  48, 90,
-                  18, 90,
-                ])
-                .fill({
-                  color: 0xe8dfff,
-                  alpha: 0.82,
-                });
-
-              // Use a dedicated invisible mask for the wipe instead of the
-              // winning card itself. This keeps the selected card's purple
-              // reveal border completely independent from the wipe effect.
-              const winningCardWipeMask = new Graphics()
-                .roundRect(-80, -70, 160, 140, 16)
-                .fill(0xffffff);
-
-              selectedCard.container.addChild(winningCardWipeMask);
-
-              winningCardWipe.x = -150;
-              winningCardWipe.mask = winningCardWipeMask;
-              selectedCard.container.addChild(winningCardWipe);
-
-              gsap.to(winningCardWipe, {
-                x: 150,
-                duration: 0.34,
-                ease: 'power2.inOut',
-                onComplete: () => {
-                  winningCardWipe.mask = null;
-                  winningCardWipe.destroy();
-                  winningCardWipeMask.destroy();
-                },
-              });
-            })
-            // Keep the reveal timeline alive long enough for the card-only wipe
-            // to finish before the final hold and modal exit begin.
-            .to({}, {
-              duration: 0.34,
-            });
         });
         cards.set(choice, {
+          choice,
           container: card,
-          button,
-          label,
-          multiplier,
+          labelContainer,
+          hitArea,
+          surface,
+          selectionRing,
           artwork,
-          textPlate,
-          revealCard,
+          artworkGlow,
+          multiplier,
+          originalX: CARD_X[index],
         });
         overlay.addChild(card);
+        backdropLayer.addChild(labelContainer);
       });
       // ─────────────────────────────────────────────
-      // Feature Entrance Animation
+      // Entrance: establish → invite → enable choices
       // ─────────────────────────────────────────────
-      this.addChild(overlay);
-      overlay.alpha = 0;
-      // Opening wipe is an exact 4× scale of the winning-card wipe.
-      // The modal is 640px wide and the card is 160px wide, so scaling the
-      // card wipe geometry by 4 preserves the same width ratio, diagonal angle,
-      // direction, and overall visual language at the larger surface size.
-      const panelWipe = new Graphics()
-        .poly([
-          -72, -360,
-          48, -360,
-          192, 360,
-          72, 360,
-        ])
-        .fill({
-          color: 0xe8dfff,
-          alpha: 0.82,
-        });
-      panel.addChild(panelWipe);
-      panelWipe.mask = panelMask;
-      panel.alpha = 0;
-      panel.scale.set(0.96);
-      // Match the winning-card wipe travel distance proportionally:
-      // 300px across a 160px card = 1.875 surface widths.
-      // 1.875 × 640px modal = 1200px total travel, centered from -600 to 600.
-      panelWipe.x = -600;
-      gsap.to(overlay, {
-        alpha: 1,
-        duration: 0.18,
-        ease: 'power1.out',
-      });
-      gsap.to(panel, {
-        alpha: 1,
-        duration: 0.2,
-        ease: 'power2.out',
-      });
-      gsap.to(panelWipe, {
-        x: 600,
-        // Same duration and easing as the winning-card wipe. Because the
-        // travel distance is also normalized to surface width, perceived speed
-        // now matches at both scales.
-        duration: 0.34,
-        delay: 0.08,
-        ease: 'power2.inOut',
-        onComplete: () => {
-          panelWipe.destroy();
-        },
-      });
-      gsap.to(panel.scale, {
-        x: 1,
-        y: 1,
-        duration: 0.42,
-        delay: 0.04,
-        ease: 'back.out(1.4)',
-      });
-      choices.forEach((choice, index) => {
-        const card = cards.get(choice);
-        if (!card) {
-          return;
-        }
-        gsap.fromTo(
-          card.container,
-          {
-            alpha: 0,
-            y: 350,
-            scale: 0.75,
-          },
+      const entrance = gsap.timeline();
+      entrance
+        .to(overlay, {
+          alpha: 1,
+          duration: 0.12,
+          ease: 'power1.out',
+        })
+        .to(
+          dimmer,
           {
             alpha: 1,
-            y: 300,
-            scale: 1,
-            duration: 0.42,
-            delay: 0.38 + index * 0.1,
-            ease: 'back.out(1.7)',
+            duration: 0.28,
+            ease: 'power1.out',
           },
+          0,
+        )
+        .to(
+          panel,
+          {
+            alpha: 1,
+            duration: 0.26,
+            ease: 'power2.out',
+          },
+          0.1,
+        )
+        .to(
+          panel.scale,
+          {
+            x: 1,
+            y: 1,
+            duration: 0.38,
+            ease: 'back.out(1.25)',
+          },
+          0.1,
+        );
+      CHOICES.forEach((choice, index) => {
+        const card = cards.get(choice);
+        if (!card) return;
+        entrance.to(
+          card.container,
+          {
+            alpha: 1,
+            y: CARD_Y,
+            duration: 0.34,
+            ease: 'back.out(1.45)',
+          },
+          0.46 + index * 0.075,
+        );
+        entrance.to(
+          card.container.scale,
+          {
+            x: 1,
+            y: 1,
+            duration: 0.34,
+            ease: 'back.out(1.45)',
+          },
+          0.46 + index * 0.075,
         );
       });
     });
   }
-
+  private playRevealSequence(args: {
+    overlay: Container;
+    dimmer: Graphics;
+    panel: Container;
+    backdropLayer: Container;
+    panelVeil: Graphics;
+    choiceEchoLayer: Container;
+    heroFrame: Graphics;
+    heroCaption: Text;
+    heroMultiplier: Text;
+    heroConfirmation: Text;
+    cards: Map<MidnightChoice, ChoiceCard>;
+    selectedChoice: MidnightChoice;
+    selectedMultiplier: number;
+    resolveChoice: (choice: MidnightChoice) => number;
+    setCardSurface: (
+      surface: Graphics,
+      options: {
+        fillAlpha: number;
+        borderColor: number;
+        borderAlpha: number;
+        borderWidth: number;
+      },
+    ) => void;
+    finish: () => void;
+  }): void {
+    const {
+      overlay,
+      dimmer,
+      panel,
+      backdropLayer,
+      panelVeil,
+      choiceEchoLayer,
+      heroFrame,
+      heroCaption,
+      heroMultiplier,
+      heroConfirmation,
+      cards,
+      selectedChoice,
+      selectedMultiplier,
+      resolveChoice,
+      setCardSurface,
+      finish,
+    } = args;
+    const selectedCard = cards.get(selectedChoice);
+    if (!selectedCard) {
+      finish();
+      return;
+    }
+    const passiveCards = CHOICES
+      .filter((choice) => choice !== selectedChoice)
+      .map((choice) => cards.get(choice))
+      .filter((card): card is ChoiceCard => card !== undefined);
+    // Final-payoff atmosphere: repeat only the item the player actually chose.
+    // Fixed placements keep the composition intentional and reproducible while
+    // varied scale/rotation/drift prevents the echoes from reading like a grid.
+    // The exact displayed mystery-item size remains the baseline.
+    // Distribution: 20 baseline-size echoes, 8 medium accents, 3 large anchors.
+    const echoLayout = [
+      // Small / baseline tier — dominant field.
+      // 20 echoes stay close to the original displayed mystery-item size.
+      { x: -298, y: -160, scale: 0.92, alpha: 0.26 },
+      { x: -262, y: -118, scale: 0.96, alpha: 0.31 },
+      { x: -224, y: -152, scale: 1.00, alpha: 0.29 },
+      { x: -186, y: -116, scale: 1.04, alpha: 0.33 },
+      { x: -144, y: -158, scale: 0.94, alpha: 0.26 },
+      { x: -98, y: -126, scale: 1.02, alpha: 0.31 },
+      { x: -292, y: -36, scale: 1.00, alpha: 0.29 },
+      { x: -250, y: 18, scale: 0.95, alpha: 0.31 },
+      { x: -292, y: 92, scale: 1.05, alpha: 0.26 },
+      { x: -238, y: 150, scale: 0.98, alpha: 0.33 },
+      { x: 298, y: -158, scale: 0.93, alpha: 0.26 },
+      { x: 258, y: -114, scale: 1.00, alpha: 0.31 },
+      { x: 220, y: -150, scale: 1.05, alpha: 0.29 },
+      { x: 176, y: -112, scale: 0.96, alpha: 0.33 },
+      { x: 134, y: -158, scale: 1.02, alpha: 0.26 },
+      { x: 92, y: -124, scale: 0.94, alpha: 0.31 },
+      { x: 292, y: -34, scale: 1.04, alpha: 0.29 },
+      { x: 248, y: 22, scale: 0.97, alpha: 0.31 },
+      { x: 288, y: 96, scale: 1.00, alpha: 0.26 },
+      { x: 236, y: 150, scale: 1.05, alpha: 0.33 },
+      // Medium tier — 8 stronger accents.
+      { x: -198, y: -70, scale: 1.28, alpha: 0.30 },
+      { x: -170, y: 68, scale: 1.34, alpha: 0.33 },
+      { x: -112, y: 132, scale: 1.42, alpha: 0.28 },
+      { x: -78, y: -42, scale: 1.50, alpha: 0.35 },
+      { x: 194, y: -72, scale: 1.30, alpha: 0.30 },
+      { x: 168, y: 70, scale: 1.38, alpha: 0.33 },
+      { x: 110, y: 134, scale: 1.46, alpha: 0.28 },
+      { x: 76, y: -44, scale: 1.54, alpha: 0.35 },
+      // Large tier — 3 dramatic anchors with lower opacity.
+      { x: -270, y: 126, scale: 1.88, alpha: 0.22 },
+      { x: 270, y: -128, scale: 2.02, alpha: 0.24 },
+      { x: 8, y: 164, scale: 2.18, alpha: 0.20 },
+    ] as const;
+    const choiceBaselineScale = selectedCard.artwork.scale.x;
+    const choiceEchoes = echoLayout.map((layout) => {
+      const echo = new Sprite(selectedCard.artwork.texture);
+      echo.anchor.set(0.5);
+      echo.x = layout.x;
+      echo.y = layout.y;
+      // Random starting orientation: full 360° every feature run.
+      const startRotation = Math.random() * Math.PI * 2;
+      echo.rotation = startRotation;
+      echo.alpha = 0;
+      const baseScale = choiceBaselineScale * layout.scale;
+      echo.scale.set(baseScale);
+      choiceEchoLayer.addChild(echo);
+      // Starting composition is controlled; motion is randomized every feature run.
+      // Direction can be anywhere in 360°, with enough travel to feel alive without
+      // turning into fast particle noise. Leaving the modal is allowed—the panel mask
+      // simply clips an echo once it drifts beyond the visible backdrop.
+      const angle = Math.random() * Math.PI * 2;
+      // These tweens intentionally outlive the entire remaining payoff/exit window.
+      // The overlay is destroyed before they can finish, so the echoes are always
+      // still in motion right up to the final frame instead of settling early.
+      const duration = 7.0 + Math.random() * 1.0; // 7.0–8.0 s
+      const speed = 18 + Math.random() * 16; // 18–34 px/s
+      const distance = speed * duration; // preserves the established motion feel
+      const rotationDirection = Math.random() < 0.5 ? -1 : 1;
+      const rotationDelta =
+        rotationDirection * (0.18 + Math.random() * 0.42); // ±0.18–0.60 rad
+      const scaleFactor = 0.94 + Math.random() * 0.18; // 0.94–1.12
+      return {
+        echo,
+        layout,
+        baseScale,
+        motion: {
+          x: layout.x + Math.cos(angle) * distance,
+          y: layout.y + Math.sin(angle) * distance,
+          rotation: startRotation + rotationDelta,
+          duration,
+          scaleFactor,
+        },
+      };
+    });
+    const revealCardFace = (
+      card: ChoiceCard,
+      multiplier: number,
+      isSelected: boolean,
+    ): void => {
+      card.artwork.visible = false;
+      card.multiplier.text = `×${multiplier}`;
+      card.multiplier.alpha = 0;
+      card.multiplier.scale.set(isSelected ? 0.88 : 0.78);
+      card.multiplier.style.fontSize = isSelected ? 58 : 42;
+      setCardSurface(card.surface, {
+        fillAlpha: isSelected ? 0.97 : 0.9,
+        borderColor: isSelected ? 0xc75cff : 0xa78bb3,
+        borderAlpha: isSelected ? 1 : 0.72,
+        borderWidth: isSelected ? 3 : 1.5,
+      });
+      card.selectionRing.alpha = isSelected ? 0.78 : 0;
+    };
+    const timeline = gsap.timeline({
+      onComplete: () => {
+        finish();
+      },
+    });
+    // Beat 1 — click acknowledgement. The card/object pops; the podium label lives
+    // in the backdrop layer and therefore remains visually planted.
+    timeline
+      .to(selectedCard.selectionRing, {
+        alpha: 1,
+        duration: 0.08,
+        ease: 'power1.out',
+      }, 0)
+      .to(selectedCard.container.scale, {
+        x: 1.08,
+        y: 1.08,
+        duration: 0.1,
+        ease: 'power2.out',
+      }, 0)
+      .to(selectedCard.container.scale, {
+        x: 1.02,
+        y: 1.02,
+        duration: 0.14,
+        ease: 'power2.inOut',
+      });
+    // Beat 2 — silence the rest of the interface and create anticipation.
+    passiveCards.forEach((card) => {
+      timeline.to(card.container, {
+        alpha: 0.32,
+        duration: 0.24,
+        ease: 'power1.out',
+      }, 0.18);
+      timeline.to(card.container.scale, {
+        x: 0.96,
+        y: 0.96,
+        duration: 0.24,
+        ease: 'power2.out',
+      }, 0.18);
+    });
+    timeline
+      .to(panelVeil, {
+        alpha: 0.76,
+        duration: 0.38,
+        ease: 'power1.inOut',
+      }, 0.28)
+      .to(backdropLayer, {
+        alpha: 0.44,
+        duration: 0.38,
+        ease: 'power1.inOut',
+      }, 0.28);
+    // Beat 3 — selected result reveal. Keep the card physically stable: fade the
+    // mystery artwork away, swap the face, then let the multiplier pop into place.
+    timeline
+      .to(selectedCard.artwork, {
+        alpha: 0,
+        duration: 0.17,
+        ease: 'power1.in',
+      }, 0.66)
+      .call(() => {
+        revealCardFace(selectedCard, selectedMultiplier, true);
+      }, [], 0.83)
+      .to(selectedCard.multiplier, {
+        alpha: 1,
+        duration: 0.16,
+        ease: 'power1.out',
+      }, 0.84)
+      .to(selectedCard.multiplier.scale, {
+        x: 1,
+        y: 1,
+        duration: 0.18,
+        ease: 'back.out(1.5)',
+      }, 0.84);
+    // Beat 4 — give the selected result a real recognition hold before revealing
+    // the unchosen outcomes. The player should have time to read what they won.
+    timeline.to({}, { duration: 0.36 });
+    // Beat 5 — reveal the other two outcomes quickly and consistently.
+    passiveCards.forEach((card, index) => {
+      const passiveMultiplier = resolveChoice(card.choice);
+      const start = 1.48 + index * 0.19;
+      timeline
+        .to(card.artwork, {
+          alpha: 0,
+          duration: 0.13,
+          ease: 'power1.in',
+        }, start)
+        .call(() => {
+          revealCardFace(card, passiveMultiplier, false);
+        }, [], start + 0.13)
+        .to(card.container, {
+          alpha: 0.58,
+          duration: 0.12,
+          ease: 'power1.out',
+        }, start + 0.14)
+        .to(card.multiplier, {
+          alpha: 1,
+          duration: 0.12,
+          ease: 'power1.out',
+        }, start + 0.14)
+        .to(card.multiplier.scale, {
+          x: 1,
+          y: 1,
+          duration: 0.15,
+          ease: 'power2.out',
+        }, start + 0.14);
+    });
+    // Beat 6 — settle the card comparison, then deliberately hand visual control
+    // to one centralized result. This is the feature's payoff frame.
+    const heroStart = 2.08;
+    timeline.call(() => {
+      heroMultiplier.text = `×${selectedMultiplier}`;
+    }, [], heroStart);
+    cards.forEach((card, choice) => {
+      timeline.to(card.container, {
+        alpha: choice === selectedChoice ? 0.045 : 0.02,
+        duration: 0.34,
+        ease: 'power1.inOut',
+      }, heroStart + 0.06);
+    });
+    // Start the selected-item atmosphere invisibly at the moment the chosen card
+    // reveals. Give every echo its final opacity immediately while the parent layer
+    // is still fully hidden, then let all 31 objects move behind the scenes.
+    timeline.call(() => {
+      choiceEchoes.forEach(({ echo, layout, baseScale, motion }) => {
+        echo.alpha = layout.alpha;
+        gsap.to(echo, {
+          x: motion.x,
+          y: motion.y,
+          rotation: motion.rotation,
+          duration: motion.duration,
+          ease: 'none',
+        });
+        gsap.to(echo.scale, {
+          x: baseScale * motion.scaleFactor,
+          y: baseScale * motion.scaleFactor,
+          duration: motion.duration,
+          ease: 'none',
+        });
+      });
+    }, [], 0.83);
+    // Reveal the whole already-moving field as one layer when the backdrop begins
+    // to suppress. No per-object stagger means nothing visibly "spawns" afterward.
+    timeline.to(choiceEchoLayer, {
+      alpha: 1,
+      duration: 0.28,
+      ease: 'power1.out',
+    }, heroStart + 0.06);
+    timeline
+      // Once the outcome is known, the locked artwork becomes atmosphere rather
+      // than information. Darken it decisively so the result frame owns the modal.
+      .to(panelVeil, {
+        alpha: 0.94,
+        duration: 0.34,
+        ease: 'power1.inOut',
+      }, heroStart + 0.06)
+      .to(backdropLayer, {
+        alpha: 0.14,
+        duration: 0.34,
+        ease: 'power1.inOut',
+      }, heroStart + 0.06)
+      .to(heroFrame, {
+        alpha: 1,
+        duration: 0.22,
+        ease: 'power1.out',
+      }, heroStart + 0.16)
+      .to(heroCaption, {
+        alpha: 0.92,
+        duration: 0.2,
+        ease: 'power1.out',
+      }, heroStart + 0.2)
+      .to(heroMultiplier, {
+        alpha: 1,
+        duration: 0.18,
+        ease: 'power1.out',
+      }, heroStart + 0.2)
+      .to(heroMultiplier.scale, {
+        x: 1.08,
+        y: 1.08,
+        duration: 0.3,
+        ease: 'back.out(1.85)',
+      }, heroStart + 0.2)
+      .to(heroMultiplier.scale, {
+        x: 1,
+        y: 1,
+        duration: 0.18,
+        ease: 'power2.out',
+      }, heroStart + 0.5)
+      .to(heroConfirmation, {
+        alpha: 0.88,
+        duration: 0.18,
+        ease: 'power1.out',
+      }, heroStart + 0.42);
+    // Beat 7 — recognition hold. Give the player enough time to register the
+    // centered result before the presentation hands control back to the base game.
+    timeline.to({}, { duration: 3.1 });
+    // Beat 8 — compact the result before the modal goes away. This makes the
+    // subsequent base-game multiplier indicator feel like the continuation of
+    // the same state rather than an unrelated UI pop.
+    timeline
+      // Let the selected-item echoes keep moving while the modal fades away.
+      // Their motion is cleaned up only when the overlay is destroyed at the end.
+      .to(choiceEchoLayer, {
+        alpha: 0,
+        duration: 0.18,
+        ease: 'power1.in',
+      })
+      .to(heroConfirmation, {
+        alpha: 0,
+        duration: 0.16,
+        ease: 'power1.in',
+      }, '<')
+      .to(heroFrame, {
+        alpha: 0,
+        duration: 0.18,
+        ease: 'power1.in',
+      }, '<')
+      .to(heroCaption, {
+        alpha: 0,
+        duration: 0.16,
+        ease: 'power1.in',
+      }, '<')
+      .to(heroMultiplier.scale, {
+        x: 0.72,
+        y: 0.72,
+        duration: 0.24,
+        ease: 'power2.inOut',
+      }, '<')
+      .to(heroMultiplier, {
+        y: 455,
+        alpha: 0,
+        duration: 0.26,
+        ease: 'power2.in',
+      }, '<')
+      .to(panel, {
+        alpha: 0,
+        duration: 0.24,
+        ease: 'power1.in',
+      }, '<0.06')
+      .to(dimmer, {
+        alpha: 0,
+        duration: 0.28,
+        ease: 'power1.in',
+      }, '<0.02')
+      .to(overlay, {
+        alpha: 0,
+        duration: 0.18,
+        ease: 'power1.in',
+      }, '<0.08');
+  }
+  private cleanupOverlay(
+    overlay: Container,
+    cards: Map<MidnightChoice, ChoiceCard>,
+  ): void {
+    cards.forEach((card) => {
+      gsap.killTweensOf(card.container);
+      gsap.killTweensOf(card.container.scale);
+      gsap.killTweensOf(card.artwork);
+      gsap.killTweensOf(card.multiplier);
+      gsap.killTweensOf(card.multiplier.scale);
+      gsap.killTweensOf(card.selectionRing);
+      card.artwork.filters = null;
+    });
+    gsap.killTweensOf(overlay);
+    overlay.destroy({ children: true });
+  }
 }

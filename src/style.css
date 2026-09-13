@@ -91,7 +91,6 @@ body {
   overflow: hidden;
   background: transparent;
   container-type: inline-size;
-
   /* Persistent responsive chrome. These heights are reserved before the
      playable Pixi composition is scaled, so both bars remain fully usable
      instead of being derived from leftover cabinet space. */
@@ -131,9 +130,7 @@ body {
   height: var(--footer-bar-height);
   z-index: 2;
   box-sizing: border-box;
-
   overflow: hidden;
-
   /* Presentation only: preserve the approved footer footprint and let the
      surface feel like worn lower-cabinet trim rather than a separate banner. */
   border: 1px solid #6a4a2d;
@@ -143,12 +140,10 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 216, 153, 0.09),
     0 -5px 18px rgba(0, 0, 0, 0.30);
-
   font-family: monospace;
   white-space: nowrap;
   user-select: none;
 }
-
 .portfolio-footer__content {
   position: absolute;
   inset: 0;
@@ -161,7 +156,6 @@ body {
   min-width: 0;
   min-height: 0;
 }
-
 .portfolio-footer__label,
 .portfolio-footer__name,
 .portfolio-footer__tech {
@@ -171,7 +165,6 @@ body {
   line-height: 1;
   white-space: nowrap;
 }
-
 .portfolio-footer__label,
 .portfolio-footer__name {
   flex: 0 0 auto;
@@ -202,7 +195,6 @@ body {
   letter-spacing: 0.10em;
   opacity: 0.90;
 }
-
 @media (max-width: 720px) {
   .portfolio-footer__content {
     gap: clamp(5px, 0.8vw, 9px);
@@ -211,23 +203,19 @@ body {
     display: none;
   }
 }
-
 @container (max-width: 560px) {
   .portfolio-footer__content {
     gap: 6px;
   }
-
   .portfolio-footer__tech,
   .portfolio-footer__divider {
     display: none;
   }
-
   .portfolio-footer__label,
   .portfolio-footer__name {
     text-overflow: clip;
   }
 }
-
 .art-placeholder--locals {
   position: absolute;
   top: 0;
@@ -260,26 +248,21 @@ body {
 .locals-bar-trigger__content {
   position: absolute;
   inset: 0;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 0 12px;
   box-sizing: border-box;
   white-space: nowrap;
 }
-
 .locals-bar-trigger__phrase {
   display: inline-flex;
   align-items: baseline;
   white-space: pre;
 }
-
 .locals-bar-trigger__phrase > span {
   line-height: 1;
 }
-
 .locals-bar-trigger__emphasis {
   color: #e6c47a;
   font-weight: strong;
@@ -292,7 +275,6 @@ body {
   color: #d8c28f;
   border-color: #c5aa72;
 }
-
 /* Meet the Locals is treated as one responsive composition. The backdrop is
    a size container so the modal can scale against the ACTUAL host width/height,
    not just the browser width. All modal chrome below is sized in container-width
@@ -301,17 +283,13 @@ body {
   position: absolute;
   inset: 0;
   z-index: 10000;
-
   display: grid;
   place-items: center;
-
   --locals-edge-gap: clamp(8px, 2.4vmin, 48px);
   padding: var(--locals-edge-gap);
   box-sizing: border-box;
-
   /* Enables cqw/cqh units for the modal below. */
   container-type: size;
-
   background: rgba(0, 0, 0, 0.76);
 }
 .locals-backdrop[hidden] {
@@ -329,10 +307,8 @@ body {
   height: auto;
   min-width: 0;
   min-height: 0;
-
   /* Internal dimensions use this panel as their sizing container. */
   container-type: inline-size;
-
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
@@ -434,7 +410,7 @@ canvas {
 }
 /* Preserve the full three-region composition while it remains useful.
    On genuinely small screens, decorative side regions yield to gameplay. */
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .presentation-shell {
     grid-template-columns: 0 minmax(0, 1fr) 0;
   }
@@ -488,7 +464,7 @@ canvas {
 }
 .dev-console__label {
   color: #8f98a3;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 14px;
   letter-spacing: 0.12em;
@@ -513,10 +489,6 @@ canvas {
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.dev-console__button:disabled {
-  color: #777f89;
-  cursor: not-allowed;
-}
 .dev-console__button[data-active-tone='replay'] {
   border-color: #c94a56;
   background: #fff4f4;
@@ -536,4 +508,18 @@ canvas {
   border-color: #d7a83d;
   background: #fffaf0;
   color: #9a6810;
+}
+.dev-console__button:disabled {
+  cursor: not-allowed;
+  color: #59616b;
+  background: #111419;
+  border-color: #2d333b;
+  opacity: 0.48;
+  box-shadow: none;
+}
+.dev-console__button:disabled:hover,
+.dev-console__button:disabled:focus-visible {
+  color: #59616b;
+  background: #111419;
+  border-color: #2d333b;
 }

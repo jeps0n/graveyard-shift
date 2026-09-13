@@ -67,6 +67,7 @@ export class Game {
   private replayCapture: LastSpinReplay | null = null;
   private readonly spinReplayController: SpinReplayController;
   private currentWin = 0;
+  private onAfterMidnightDevAvailabilityChanged: ((available: boolean) => void) | null = null;
   constructor(
     app: Application,
     devReceiptHost?: HTMLElement,
@@ -211,7 +212,7 @@ export class Game {
     this.view.setDevMode(enabled);
   }
   setAfterMidnightTriggerArmed(armed: boolean): boolean {
-    if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
+    if (this.stateMachine.current !== 'IDLE') {
       return false;
     }
     this.forceAfterMidnightNextSpin = armed;
@@ -225,6 +226,12 @@ export class Game {
   }
   setAfterMidnightDevTriggerConsumedHandler(handler: () => void): void {
     this.onAfterMidnightDevTriggerConsumed = handler;
+  }
+  setAfterMidnightDevAvailabilityHandler(
+    handler: (available: boolean) => void,
+  ): void {
+    this.onAfterMidnightDevAvailabilityChanged = handler;
+    handler(this.stateMachine.current === 'IDLE');
   }
   setLastSpinReplayAvailableHandler(handler: (available: boolean) => void): void {
     this.spinReplayController.setReplayAvailableHandler(handler);
@@ -254,6 +261,7 @@ export class Game {
       return;
     }
     this.spinReplayController.setAvailability(false);
+    this.onAfterMidnightDevAvailabilityChanged?.(false);
     this.devReceipt.clear();
     const preSpinGrid = cloneGrid(
       this.currentGrid,
@@ -655,6 +663,7 @@ export class Game {
     this.stateMachine.transition(
       'IDLE',
     );
+    this.onAfterMidnightDevAvailabilityChanged?.(true);
     this.devReceipt.event(
       'STATE TRANSITION',
       [

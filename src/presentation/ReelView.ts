@@ -389,6 +389,10 @@ export class ReelView extends Container {
     for (const tiles of this.reelTiles) {
       for (const tile of tiles) {
         tile.coordinate.visible = enabled && this.coordinatesVisible;
+        const background = tile.visual.getChildByLabel('dev-coordinate-background');
+        if (background) {
+          background.visible = enabled && this.coordinatesVisible;
+        }
       }
     }
     if (!enabled) {
@@ -400,6 +404,10 @@ export class ReelView extends Container {
     for (const tiles of this.reelTiles) {
       for (const tile of tiles) {
         tile.coordinate.visible = this.devMode && visible;
+        const background = tile.visual.getChildByLabel('dev-coordinate-background');
+        if (background) {
+          background.visible = this.devMode && visible;
+        }
       }
     }
   }
@@ -626,15 +634,36 @@ export class ReelView extends Container {
         color: presentation.main,
       });
     tileVisual.addChild(frame);
+    const coordinateBadgeX = 6;
+    const coordinateBadgeY = 6;
+    const coordinateBadgeWidth = 32;
+    const coordinateBadgeHeight = 22;
+    const coordinateBackground = new Graphics()
+      .roundRect(
+        coordinateBadgeX,
+        coordinateBadgeY,
+        coordinateBadgeWidth,
+        coordinateBadgeHeight,
+        5,
+      )
+      .fill({ color: 0x000000, alpha: 0.62 });
+    coordinateBackground.label = 'dev-coordinate-background';
+    coordinateBackground.visible = this.devMode && this.coordinatesVisible;
+    tileVisual.addChild(coordinateBackground);
+
     const coordinate = new Text({
       text: `(${reel + 1},${row + 1})`,
       style: {
-        fill: 0xaaaaaa,
+        fill: 0x00e5ff,
         fontSize: 12,
+        fontWeight: 'bold',
       },
     });
-    coordinate.x = 8;
-    coordinate.y = 8;
+    coordinate.anchor.set(0.5);
+    coordinate.position.set(
+      coordinateBadgeX + coordinateBadgeWidth / 2,
+      coordinateBadgeY + coordinateBadgeHeight / 2,
+    );
     coordinate.visible = this.devMode && this.coordinatesVisible;
     tileVisual.addChild(coordinate);
     return {
