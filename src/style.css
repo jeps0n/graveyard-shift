@@ -41,48 +41,6 @@ canvas {
     50px 50px;
   background-position: 0 0;
 }
-.presentation-shell {
-  --side-region-width: 23.958333%;
-}
-.presentation-shell::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  /* FOREGROUND REGISTRATION GRID */
-  /* background-image:
-    linear-gradient(rgba(0, 255, 255, 0.88) 2px, transparent 2px),
-    linear-gradient(90deg, rgba(0, 255, 255, 0.88) 2px, transparent 2px),
-    linear-gradient(rgba(255, 255, 255, 0.32) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.32) 1px, transparent 1px); */
-  background-image:
-    linear-gradient(rgba(99, 219, 232, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 219, 232, 0.07) 1px, transparent 1px),
-    linear-gradient(rgba(99, 219, 232, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 219, 232, 0.025) 1px, transparent 1px);
-  background-size:
-    100px 100px,
-    100px 100px,
-    50px 50px,
-    50px 50px;
-  background-position: 0 0;
-}
-.presentation-shell::after {
-  content: '100 px  ·  50 px minor';
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 10000;
-  padding: 4px 6px;
-  border: 1px solid rgba(0, 255, 255, 0.7);
-  background: rgba(11, 13, 16, 0.9);
-  color: rgba(0, 255, 255, 0.95);
-  font: 10px/1 monospace;
-  letter-spacing: 0.04em;
-  pointer-events: none;
-  user-select: none;
-}
 .presentation-side {
   position: relative;
   min-width: 0;
@@ -142,12 +100,7 @@ canvas {
 .art-placeholder--right {
   position: absolute;
   inset: 0;
-
   border: 1px solid #8f7650;
-  /* box-shadow:
-    inset 0 0 0 1px rgba(232, 190, 112, 0.16),
-    inset 0 0 18px rgba(0, 0, 0, 0.45); */
-
   background-color: #0b0d10;
   background-position: center;
   background-repeat: no-repeat;
