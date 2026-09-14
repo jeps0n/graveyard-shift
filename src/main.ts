@@ -1,6 +1,8 @@
 import { Application } from 'pixi.js';
 import './style.css';
 import { loadSymbolAssets } from './assets/SymbolAssets';
+import gameInfoLeftUrl from './assets/gameInfoLeft.png';
+import gameInfoRightUrl from './assets/gameInfoRight.png';
 import localsPanelArtworkUrl from './assets/localsPanelArtwork.png';
 import { DevModeController } from './dev/DevModeController';
 import { Game } from './game/Game';
@@ -15,7 +17,7 @@ leftPresentation.className = 'presentation-side presentation-side--left';
 leftPresentation.setAttribute('aria-hidden', 'true');
 const leftArtworkPlaceholder = document.createElement('div');
 leftArtworkPlaceholder.className = 'art-placeholder art-placeholder--left';
-leftArtworkPlaceholder.textContent = 'LEFT ARTWORK / WORLD BUILDING';
+leftArtworkPlaceholder.style.backgroundImage = `url(${gameInfoLeftUrl})`;
 leftPresentation.appendChild(leftArtworkPlaceholder);
 const gameHost = document.createElement('section');
 gameHost.className = 'game-host';
@@ -43,7 +45,7 @@ rightPresentation.className = 'presentation-side presentation-side--right';
 rightPresentation.dataset.mode = 'portfolio';
 const rightArtworkPlaceholder = document.createElement('div');
 rightArtworkPlaceholder.className = 'art-placeholder art-placeholder--right';
-rightArtworkPlaceholder.textContent = 'ARTWORK / GAME INFO';
+rightArtworkPlaceholder.style.backgroundImage = `url(${gameInfoRightUrl})`;
 rightPresentation.appendChild(rightArtworkPlaceholder);
 const localsBarPlaceholder = document.createElement('button');
 localsBarPlaceholder.className = 'art-placeholder art-placeholder--locals locals-bar-trigger';
@@ -197,7 +199,8 @@ function resizeGame(): void {
   const playableHeight = Math.max(1, playableBottom - playableTop);
   const scaleX = width / GAME_WIDTH;
   const scaleY = playableHeight / GAME_HEIGHT;
-  const scale = Math.min(scaleX, scaleY);
+  const adjustedScaleY = scaleY >= 0.97 ? 1 : scaleY;
+  const scale = Math.min(scaleX, adjustedScaleY);
   game.view.scale.set(scale);
   game.view.x = (width - GAME_WIDTH * scale) / 2;
   // Preserve the reel-centered composition when space allows, then clamp the translated
