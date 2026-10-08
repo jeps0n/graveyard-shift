@@ -13,7 +13,7 @@ GRAVEYARD SHIFT is a portfolio game set at **The Dead End**, a 24-hour truck sto
 - Left-to-right **3+ symbol** wins
 - **Marge Wild** substitutes for regular paying symbols
 - **Midnight Scatter** triggers the feature with 3+ Scatters
-- Winning symbols are removed and **cascade**, with new symbols dropping into the vacancies
+- Winning symbols are removed, surviving symbols fall, and new symbols refill the grid
 - Cascades continue until no new line win remains
 - Player-controlled wager with quick bet controls
 
@@ -39,38 +39,44 @@ A large offline simulation was used during development to validate the resulting
 
 | Metric | Simulated result |
 | --- | ---: |
-| Base RTP | ~94.8% |
-| Overall RTP including After Midnight | **~97.8%** |
-| Base win hit frequency | ~24.7% |
-| After Midnight trigger rate | ~0.95% |
-| Approx. feature frequency | ~1 in 106 spins |
-| Spins with at least one additional winning cascade | ~3.9% |
+| Base RTP | ≈94.8% |
+| Overall RTP including After Midnight | **≈97.8%** |
+| Base win hit frequency | ≈24.7% |
+| After Midnight trigger rate | ≈0.95% |
+| Approx. feature frequency | ≈1 in 106 spins |
+| Spins with at least one additional winning cascade | ≈3.9% |
 
 These values are simulation results rather than regulatory claims and can vary slightly between runs.
 
 ## Architecture
 
 The project separates game rules, math, presentation, features, and developer tooling rather than placing the full game loop in a single UI file.
-
 ```text
 src/
-├── assets/              # Symbols, cabinet, side artwork
-├── after-midnight/      # Feature artwork
-├── dev/                 # DEV console, receipt, snapshots, spin replay
+├── assets/                     # Symbols, cabinet, side artwork
+├── after-midnight/             # Feature artwork
+├── dev/
+│   ├── DebugSpinSnapshots.ts   # Recorded spin phase snapshots
+│   ├── SpinReplayController.ts # Replay captured outcomes
+│   ├── DevModeController.ts
+│   └── DevReceipt.ts
 ├── features/
-│   └── AfterMidnight.ts # Feature outcome math
+│   └── AfterMidnight.ts        # Feature outcome math
 ├── game/
-│   ├── Game.ts          # Game orchestration
+│   ├── Game.ts                 # Game orchestration
 │   ├── GameStateMachine.ts
 │   └── types.ts
 ├── math/
-│   ├── GameMath.ts      # Reel generation, win evaluation, cascades
+│   ├── GameMath.ts             # Reel generation, win evaluation, cascades
 │   ├── Paylines.ts
 │   ├── Paytable.ts
 │   └── RNG.ts
 ├── presentation/
 │   ├── GameView.ts
 │   ├── ReelView.ts
+│   ├── DebugSpinInspector.ts   # Snapshot navigation controls
+│   ├── BettingControls.ts      # Wager interactions
+│   ├── GameHud.ts              # Balance and win display
 │   ├── AfterMidnightView.ts
 │   └── SymbolPresentation.ts
 ├── main.ts
@@ -78,7 +84,6 @@ src/
 ```
 
 The game flow uses an explicit state machine:
-
 ```text
 IDLE
   ↓
@@ -102,28 +107,24 @@ The project includes an internal developer view for inspecting and reproducing g
 DEV tools include:
 
 - **Spin Snapshot Navigation** — step through Pre-Spin Grid, Initial Grid, each Cascade, and Final Grid
-- **Replay last completed spin** using captured outcomes
-- **Force After Midnight** on the next live spin
+- **Replay last completed spin** — replay captured outcomes without generating new results, deducting another wager, or changing the balance
+- **Trigger After Midnight** on the next live spin
 - Toggle **reel coordinates**
 - Toggle **winning paylines**
 - Detailed **DEV receipt** showing spin/math events
 
 To open DEV mode, **hold `D` and click the right presentation panel**.
 
-The replay path is presentation-only: it replays captured outcomes rather than consuming a new wager, generating new random results, or changing the balance.
-
 ## Testing
 
 The project includes Vitest coverage for game math, state transitions, wager handling, After Midnight, replay consistency, snapshot navigation, developer diagnostics, and presentation behavior. Tests cover both core logic and selected PixiJS/GSAP interactions.
 
 Run the suite with:
-
 ```bash
 npx vitest run
 ```
 
 Run coverage with:
-
 ```bash
 npx vitest run --coverage
 ```
@@ -140,7 +141,6 @@ npx vitest run --coverage
 ## Run Locally
 
 Requires Node.js and npm.
-
 ```bash
 git clone https://github.com/jeps0n/graveyard-shift.git
 cd graveyard-shift
@@ -149,13 +149,11 @@ npm run dev
 ```
 
 Production build:
-
 ```bash
 npm run build
 ```
 
 Preview the production build:
-
 ```bash
 npm run preview
 ```
