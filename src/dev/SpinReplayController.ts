@@ -91,9 +91,8 @@ export class SpinReplayController {
       // Reuse the live reel/cascade presentation against captured outcomes only.
       await this.view.animateSpin();
       await this.view.animateReelStops(replay.primaryGrid);
-      const cumulativeWins = cloneWins(replay.primaryWins);
       if (replay.primaryWins.length > 0) {
-        this.view.displayWinningPaylines(cumulativeWins);
+        this.view.displayWinningPaylines(cloneWins(replay.primaryWins));
         await this.view.animateWinningSymbols(replay.primaryWins);
       }
       for (const cascade of replay.cascades) {
@@ -101,18 +100,20 @@ export class SpinReplayController {
           cascade.removed,
           cascade.grid,
         );
-        this.view.displayWinningPaylines(cumulativeWins);
+        // Live play clears the preceding evaluation after the cascade settles.
+        this.view.clearWinningPaylines();
         await delay(CASCADE_DELAY);
         if (cascade.wins.length > 0) {
-          cumulativeWins.push(...cloneWins(cascade.wins));
-          this.view.displayWinningPaylines(cumulativeWins);
+          this.view.displayWinningPaylines(cloneWins(cascade.wins));
           await this.view.animateWinningSymbols(cascade.wins);
         }
       }
       // Match LIVE settlement exactly: establish the final state once, then reuse
       // the same WIN → BALANCE payout cadence.
       this.view.displayResult(replay.finalGrid);
-      this.view.displayWinningPaylines(replay.allWins);
+      // Cascades end on a nonwinning grid; historical paths belong only
+      // to their evaluated snapshots, not the terminal grid.
+      this.view.clearWinningPaylines();
       this.view.updateReplayHud(
         replay.finalBalance,
         replay.wager,

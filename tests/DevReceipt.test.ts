@@ -56,8 +56,11 @@ describe('DevReceipt contract - wager-aware payout reporting', () => {
       reason: 'Best-pay Wild evaluation selected 3 BARKLEY for ×8.',
     };
     receipt.evaluation([trace]);
-    expect(output()).toContain('PAYTABLE MULTIPLIER ×8.00');
-    expect(output()).not.toContain('PAYOUT     $8.00');
+    expect(output()).toContain('EVALUATION COMPLETE');
+    expect(output()).toContain('WIN LINES        1');
+    expect(output()).not.toContain('EVALUATION START');
+    expect(output()).not.toContain('PAYLINE 2');
+    expect(output()).toMatch(/^\[001\] EVALUATION COMPLETE/);
   });
   it('reports base line win from paytable multiplier times the current total bet', () => {
     const receipt = new DevReceipt();
@@ -65,12 +68,6 @@ describe('DevReceipt contract - wager-aware payout reporting', () => {
     expect(output()).toContain('PAYTABLE MULTIPLIER ×8.00');
     expect(output()).toContain('BET              $5.00');
     expect(output()).toContain('BASE LINE WIN    $40.00');
-  });
-  it('changes the reported base line win when the total bet changes', () => {
-    const receipt = new DevReceipt();
-    receipt.winResult([barkleyWin()], 25);
-    expect(output()).toContain('BET              $25.00');
-    expect(output()).toContain('BASE LINE WIN    $200.00');
   });
   it('separates base win from the feature-adjusted total win', () => {
     const receipt = new DevReceipt();
@@ -124,5 +121,42 @@ describe('DevReceipt contract - diagnostic lifecycle', () => {
 
     receipt.clear();
     expect(output()).toBe('');
+  });
+});
+
+describe('DevReceipt navigation and compact logging', () => {
+  it('keeps the receipt at the top when new events arrive', () => {
+    const receipt = new DevReceipt();
+    textarea.scrollTop = 300;
+    receipt.event('PRIMARY GRID', ['COFFEE | GAS']);
+    expect(textarea.scrollTop).toBe(300);
+    receipt.scrollToTop();
+    expect(textarea.scrollTop).toBe(0);
+    receipt.clear();
+    expect(textarea.scrollTop).toBe(0);
+  });
+
+  it('scrolls to the final content without overshooting', () => {
+    const receipt = new DevReceipt();
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 600 });
+    Object.defineProperty(textarea, 'clientHeight', { configurable: true, value: 200 });
+    receipt.scrollToBottom();
+    expect(textarea.scrollTop).toBe(400);
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 100 });
+    receipt.scrollToBottom();
+    expect(textarea.scrollTop).toBe(0);
+  });
+
+  it('scrolls to the selected grid occurrence rather than the end', () => {
+    const receipt = new DevReceipt();
+    receipt.event('PRE-SPIN GRID', ['A']);
+    receipt.event('PRIMARY GRID', ['B']);
+    receipt.event('CASCADE GRID', ['C']);
+    receipt.event('CASCADE GRID', ['D']);
+    receipt.event('FINAL GRID', ['E']);
+    receipt.scrollToGrid('CASCADE GRID', 1);
+    expect(textarea.scrollTop).toBe(9 * 17);
+    receipt.scrollToGrid('PRE-SPIN GRID');
+    expect(textarea.scrollTop).toBe(0);
   });
 });

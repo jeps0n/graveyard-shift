@@ -1,3 +1,4 @@
+import { DEV_PAYLINE_COLORS } from '../presentation/DevPaylineColors';
 import type {
   ReelGrid,
   SymbolId,
@@ -11,7 +12,9 @@ import type {
 const GRID_COLUMN_WIDTH = 8;
 export class DevReceipt {
   private readonly element: HTMLTextAreaElement;
+  private readonly coloredElement: HTMLPreElement | null;
   private readonly lines: string[] = [];
+  private readonly renderedLines: HTMLElement[] = [];
   private sequence = 0;
   constructor(host?: HTMLElement) {
     this.element = document.createElement('textarea');
@@ -26,14 +29,14 @@ export class DevReceipt {
       boxSizing: 'border-box',
       padding: '20px',
       margin: '0',
-      background: '#15191f',
-      border: host ? '2px solid #444b55' : '0',
+      background: '#30383d',
+      border: host ? '2px solid #515c62' : '0',
       borderRadius: '0',
       outline: 'none',
       resize: 'none',
       overflowY: 'auto',
       overflowX: 'hidden',
-      color: '#cccccc',
+      color: '#b5bdb7',
       fontFamily: 'monospace',
       fontSize: '12px',
       lineHeight: '17px',
@@ -47,18 +50,36 @@ export class DevReceipt {
       'Dev receipt',
     );
     (host ?? document.body).appendChild(this.element);
+    // Preserve the plain-text API; render selectable, styled lines when hosted.
+    this.coloredElement = host && typeof HTMLElement !== 'undefined' && host instanceof HTMLElement
+      ? document.createElement('pre')
+      : null;
+    if (this.coloredElement) {
+      Object.assign(this.coloredElement.style, {
+        position: 'absolute', inset: '0', boxSizing: 'border-box', margin: '0',
+        padding: '20px', background: '#30383d', border: '2px solid #515c62',
+        color: '#b5bdb7', fontFamily: 'monospace', fontSize: '12px',
+        lineHeight: '17px', whiteSpace: 'pre', overflow: 'auto',
+        userSelect: 'text', overflowWrap: 'normal',
+      });
+      this.coloredElement.setAttribute('aria-label', 'Dev receipt');
+      (host ?? document.body).appendChild(this.coloredElement);
+      this.element.style.display = 'none';
+    }
     this.render();
   }
   setVisible(visible: boolean): void {
-    this.element.style.display = visible ? 'block' : 'none';
+    this.element.style.display = visible && !this.coloredElement ? 'block' : 'none';
+    if (this.coloredElement) this.coloredElement.style.display = visible ? 'block' : 'none';
   }
   clear(): void {
     this.lines.length = 0;
     this.sequence = 0;
     this.render();
+    this.scrollToTop();
   }
   blur(): void {
-    this.element.blur();
+    (this.coloredElement ?? this.element).blur();
   }
   event(
     title: string,
@@ -121,15 +142,6 @@ export class DevReceipt {
     evaluations: PaylineEvaluationTrace[],
   ): void {
     this.event(
-      'EVALUATION START',
-      [
-        `PAYLINES         ${evaluations.length}`,
-      ],
-    );
-    for (const evaluation of evaluations) {
-      this.paylineEvaluation(evaluation);
-    }
-    this.event(
       'EVALUATION COMPLETE',
       [
         `WIN LINES        ${evaluations.filter(
@@ -137,49 +149,6 @@ export class DevReceipt {
         ).length
         }`,
       ],
-    );
-  }
-  private paylineEvaluation(
-    evaluation: PaylineEvaluationTrace,
-  ): void {
-    const symbols = evaluation.symbols
-      .map(
-        (symbol) => symbol.toUpperCase(),
-      )
-      .join(' | ');
-    const path = evaluation.path
-      .map(
-        ({ reel, row }) =>
-          `(${reel + 1},${row + 1})`,
-      )
-      .join(' → ');
-    const details = [
-      `LINE       ${evaluation.payline}`,
-      `PATH       ${path}`,
-      `SYMBOLS    ${symbols}`,
-      `TARGET     ${evaluation.targetSymbol
-        ? evaluation.targetSymbol.toUpperCase()
-        : 'NONE'
-      }`,
-      `MATCHED    ${evaluation.matchedCount}`,
-      `RESULT     ${evaluation.result}`,
-    ];
-    if (evaluation.result === 'WIN') {
-      details.push(
-        `PAYTABLE MULTIPLIER ×${evaluation.payoutMultiplier.toFixed(2)}`,
-      );
-    }
-    details.push(
-      `REASON     ${evaluation.reason}`,
-    );
-    if (evaluation.blockingSymbol) {
-      details.push(
-        `BLOCKED BY ${evaluation.blockingSymbol.toUpperCase()}`,
-      );
-    }
-    this.event(
-      `PAYLINE ${evaluation.payline}`,
-      details,
     );
   }
   winResult(
@@ -294,12 +263,122 @@ export class DevReceipt {
   private formatMoney(amount: number): string {
     return amount.toFixed(2);
   }
-  private render(): void {
-    this.element.value =
-      this.lines.join('\n');
-    this.element.scrollTop =
-      this.element.scrollHeight;
+  /** Reset the visible receipt to the first event, without moving the page. */
+  scrollToTop(): void {
+    (this.coloredElement ?? this.element).scrollTop = 0;
   }
+
+  /** Show the final result and balance without moving the browser page. */
+  scrollToBottom(): void {
+    const viewport = this.coloredElement ?? this.element;
+    viewport.scrollTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+  }
+
+  /** Show the chosen historical grid and briefly identify its section. */
+  scrollToGrid(section: 'PRE-SPIN GRID' | 'PRIMARY GRID' | 'CASCADE GRID' | 'FINAL GRID', cascadeIndex = 0): void {
+    const matches = this.lines.flatMap((line, index) =>
+      /^\[\d+\] /.test(line) && line.endsWith(` ${section}`) ? [index] : [],
+    );
+    const lineIndex = matches[section === 'CASCADE GRID' ? cascadeIndex : 0];
+    if (lineIndex === undefined) return;
+
+    const viewport = this.coloredElement ?? this.element;
+    const header = this.renderedLines[lineIndex];
+    // Use the rendered position when available: section spacing changes row offsets.
+    // The plain-text fallback retains the fixed 17px line height.
+    const target = header?.offsetTop ?? lineIndex * 17;
+    const maximum = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+    viewport.scrollTop = viewport.scrollHeight > 0 ? Math.min(target, maximum) : target;
+    // Animate the content-sized grid wrapper, not four full-width rows.
+    const highlight = header?.parentElement;
+    if (!highlight?.animate || !highlight.classList.contains('receipt-grid')) return;
+    highlight.getAnimations().forEach((animation) => animation.cancel());
+    highlight.animate(
+      [
+        { backgroundColor: 'rgba(181, 189, 183, 0.09)', borderLeftColor: 'rgba(181, 189, 183, 0.55)' },
+        { backgroundColor: 'rgba(181, 189, 183, 0)', borderLeftColor: 'rgba(181, 189, 183, 0)' },
+      ],
+      { duration: 600, easing: 'ease-out' },
+    );
+  }
+
+  private render(): void {
+    this.element.value = this.lines.join('\n');
+    if (!this.coloredElement) return;
+
+    const viewport = this.coloredElement;
+    const previousScroll = viewport.scrollTop;
+    const fragment = document.createDocumentFragment();
+    this.renderedLines.length = 0;
+
+    let gridWrapper: HTMLDivElement | null = null;
+    let gridRowsRemaining = 0;
+
+    this.lines.forEach((line, index) => {
+      const row = document.createElement('span');
+      row.style.display = 'block';
+      row.style.minHeight = '17px';
+      const winHeader = line.match(/^(\[\d+\] )(WIN \d+)$/);
+      const eventHeader = line.match(/^(\[\d+\] )(.*)$/);
+      const isGridHeader = /^\[\d+\] (PRE-SPIN GRID|PRIMARY GRID|CASCADE GRID|FINAL GRID)$/.test(line);
+
+      if (eventHeader && index > 0 && !isGridHeader) {
+        row.style.paddingTop = '4px';
+      }
+
+      if (winHeader) {
+        row.appendChild(document.createTextNode(line));
+        const payline = Number(this.lines[index + 1]?.match(/^      LINE\s+(\d+)$/)?.[1]);
+        if (payline >= 1 && payline <= DEV_PAYLINE_COLORS.length) {
+          const dot = document.createElement('span');
+          Object.assign(dot.style, {
+            display: 'inline-block', width: '9px', height: '9px',
+            marginLeft: '8px', borderRadius: '50%',
+            backgroundColor: this.paylineColor(payline),
+          });
+          dot.setAttribute('aria-label', `Payline ${payline} color`);
+          row.appendChild(dot);
+        }
+      } else if (eventHeader) {
+        const number = document.createElement('span');
+        number.textContent = eventHeader[1];
+        number.style.color = '#8e9b96';
+        row.append(number, document.createTextNode(eventHeader[2]));
+      } else {
+        row.textContent = line;
+      }
+
+      if (isGridHeader) {
+        // Inline-block sizes to the longest grid row; equal inset on every side.
+        gridWrapper = document.createElement('div');
+        gridWrapper.className = 'receipt-grid';
+        Object.assign(gridWrapper.style, {
+          display: 'table', boxSizing: 'border-box',
+          padding: '6px', marginTop: index > 0 ? '4px' : '0',
+          borderLeft: '2px solid transparent',
+          borderRadius: '3px', backgroundColor: 'transparent',
+        });
+        fragment.appendChild(gridWrapper);
+        gridRowsRemaining = 4; // Header plus the three symbol rows.
+      }
+
+      if (gridWrapper && gridRowsRemaining > 0) {
+        gridWrapper.appendChild(row);
+        gridRowsRemaining--;
+        if (gridRowsRemaining === 0) gridWrapper = null;
+      } else {
+        fragment.appendChild(row);
+      }
+      this.renderedLines.push(row);
+    });
+    viewport.replaceChildren(fragment);
+    viewport.scrollTop = previousScroll;
+  }
+
+  private paylineColor(payline: number): string {
+    return `#${DEV_PAYLINE_COLORS[payline - 1].toString(16).padStart(6, '0')}`;
+  }
+
   private formatPosition(
     position: WinPosition,
   ): string {

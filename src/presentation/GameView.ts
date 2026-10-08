@@ -16,6 +16,9 @@ import type {
 import type { MidnightChoice } from '../features/AfterMidnight';
 import { AfterMidnightView } from './AfterMidnightView';
 import { ReelView } from './ReelView';
+import { DebugSpinInspector } from './DebugSpinInspector';
+import { createDebugSpinSnapshots } from '../dev/DebugSpinSnapshots';
+import type { LastSpinReplay } from '../dev/SpinReplayController';
 import { createBetButton, updateBetControls, applySpinControlState } from './BettingControls';
 import type { BettingHost } from './BettingControls';
 import { createGameHud, animateWagerBeat, animateBalanceDeductionBeat, animateWinCreditBeat, animateBalanceCreditBeat, animatePayoutBeat, updateReplayHud, updateHud } from './GameHud';
@@ -41,6 +44,8 @@ export class GameView extends Container {
   readonly bet25Button: Graphics;
   private readonly reelView: ReelView;
   private readonly afterMidnightView: AfterMidnightView;
+  private readonly debugInspector: DebugSpinInspector;
+  private onDebugSnapshotSelected: ((snapshot: import('../dev/DebugSpinSnapshots').DebugSpinSnapshot) => void) | null = null;
   public readonly balanceLabel: Text;
   public readonly wagerLabel: Text;
   public readonly winLabel: Text;
@@ -89,6 +94,12 @@ export class GameView extends Container {
       REEL_CABINET_FRONT_URL,
     );
     this.addChild(reelCabinetFront);
+    this.debugInspector = new DebugSpinInspector((snapshot) => {
+      this.reelView.displayResult(snapshot.grid);
+      this.reelView.displayWinningPaylines(snapshot.wins);
+      this.onDebugSnapshotSelected?.(snapshot);
+    });
+    this.addChild(this.debugInspector);
     // Programmatic control framing sits above cabinet artwork and below interactive
     // HUD elements, keeping control geometry independent of decorative assets.
     const controlDeckFraming = this.createControlDeckFraming();
@@ -416,7 +427,21 @@ setNextSpinMultiplier(multiplier: number): void {
     );
   }
   setDevMode(enabled: boolean): void {
+    if (!enabled) this.debugInspector.reset();
     this.reelView.setDevMode(enabled);
+    this.debugInspector.setDevMode(enabled);
+  }
+  setDebugSnapshotSelectedHandler(handler: (snapshot: import('../dev/DebugSpinSnapshots').DebugSpinSnapshot) => void): void {
+    this.onDebugSnapshotSelected = handler;
+  }
+  setDebugSpinSnapshots(replay: LastSpinReplay): void {
+    this.debugInspector.setSnapshots(createDebugSpinSnapshots(replay));
+  }
+  setDebugNavigationEnabled(enabled: boolean): void {
+    this.debugInspector.setEnabled(enabled);
+  }
+  clearDebugNavigation(): void {
+    this.debugInspector.reset();
   }
   setDevCoordinatesVisible(visible: boolean): void {
     this.reelView.setCoordinatesVisible(visible);

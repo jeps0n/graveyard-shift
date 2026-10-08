@@ -56,7 +56,7 @@ The project separates game rules, math, presentation, features, and developer to
 src/
 ├── assets/              # Symbols, cabinet, side artwork
 ├── after-midnight/      # Feature artwork
-├── dev/                 # DEV console, receipt, spin replay
+├── dev/                 # DEV console, receipt, snapshots, spin replay
 ├── features/
 │   └── AfterMidnight.ts # Feature outcome math
 ├── game/
@@ -101,7 +101,8 @@ The project includes an internal developer view for inspecting and reproducing g
 
 DEV tools include:
 
-- **Replay last completed spin**
+- **Spin Snapshot Navigation** — step through Pre-Spin Grid, Initial Grid, each Cascade, and Final Grid
+- **Replay last completed spin** using captured outcomes
 - **Force After Midnight** on the next live spin
 - Toggle **reel coordinates**
 - Toggle **winning paylines**
@@ -109,23 +110,11 @@ DEV tools include:
 
 To open DEV mode, **hold `D` and click the right presentation panel**.
 
-The replay path is presentation-only: it replays the captured result rather than consuming a new wager or generating a new live outcome.
+The replay path is presentation-only: it replays captured outcomes rather than consuming a new wager, generating new random results, or changing the balance.
 
 ## Testing
 
-The project includes **7 Vitest test files** covering core non-visual behavior:
-
-```text
-AfterMidnight.test.ts
-DevReceipt.test.ts
-GameFlow.test.ts
-GameMath.test.ts
-GameStateMachine.test.ts
-RNG.test.ts
-SpinReplayController.test.ts
-```
-
-The tests focus on the systems where correctness matters most: game math, state transitions, RNG behavior, feature behavior, game flow, replay capture, and developer diagnostics.
+The project includes Vitest coverage for game math, state transitions, wager handling, After Midnight, replay consistency, snapshot navigation, developer diagnostics, and presentation behavior. Tests cover both core logic and selected PixiJS/GSAP interactions.
 
 Run the suite with:
 

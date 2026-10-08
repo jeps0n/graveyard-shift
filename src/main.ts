@@ -276,35 +276,7 @@ function resizeGame(): void {
   );
   footerArtworkPlaceholder.style.height = `${flushFooterHeight}px`;
 
-  // Development-only geometry diagnostics. No layout or scaling changes.
-  // Open the browser console and resize/dock the window to compare viewports.
-  if (import.meta.env.DEV) {
-    const renderedGameWidth = GAME_WIDTH * scale;
-    const horizontalGutter = Math.max(0, (width - renderedGameWidth) / 2);
-    const widthScale = width / GAME_WIDTH;
-    const heightScale = adjustedScaleY;
-    const verticalHeadroom = playableHeight - GAME_HEIGHT * scale;
 
-    console.table({
-      'Viewport width (px)': window.innerWidth,
-      'Viewport height (px)': window.innerHeight,
-      'Game host width (px)': Number(width.toFixed(2)),
-      'Game host height (px)': Number(height.toFixed(2)),
-      'Artwork visible': viewportWidth > ARTWORK_BREAKPOINT,
-      'Locals reserved (px)': Number(reservedTopBarHeight.toFixed(2)),
-      'Footer reserved (px)': Number(reservedFooterBarHeight.toFixed(2)),
-      'Playable height (px)': Number(playableHeight.toFixed(2)),
-      'Width scale': Number(widthScale.toFixed(4)),
-      'Height scale (adjusted)': Number(heightScale.toFixed(4)),
-      'Applied scale': Number(scale.toFixed(4)),
-      'Limiting dimension': widthScale <= heightScale ? 'width' : 'height',
-      'Rendered game width (px)': Number(renderedGameWidth.toFixed(2)),
-      'Gutter per side (px)': Number(horizontalGutter.toFixed(2)),
-      'Vertical headroom (px)': Number(verticalHeadroom.toFixed(2)),
-      'Locals displayed (px)': Number(flushLocalsHeight.toFixed(2)),
-      'Footer displayed (px)': Number(flushFooterHeight.toFixed(2)),
-    });
-  }
 }
 window.addEventListener('resize', resizeGame);
 resizeGame();

@@ -1,3 +1,4 @@
+import { DEV_PAYLINE_COLORS } from './DevPaylineColors';
 import {
   Container,
   Graphics,
@@ -28,18 +29,7 @@ interface TileVisual {
   readonly frame: Graphics;
   readonly coordinate: Text;
 }
-const DEV_PAYLINE_COLORS = [
-  0xff0000,
-  0xff8000,
-  0xffff00,
-  0x00ff00,
-  0x00ffff,
-  0x0000ff,
-  0x8000ff,
-  0xff00ff,
-  0x8b4513,
-  0xffffff,
-];
+
 // ─────────────────────────────────────────────
 // Reel Presentation / Tile Identity
 // ─────────────────────────────────────────────
@@ -424,46 +414,56 @@ export class ReelView extends Container {
     this.paylineLayer.visible = this.devMode && visible;
   }
   displayWinningPaylines(wins: WinResult[]): void {
-    if (!this.devMode) {
-      return;
-    }
-    this.paylineLayer.removeChildren();
-    const displayedPaylines = new Set<number>();
-    for (const win of wins) {
-      if (displayedPaylines.has(win.payline)) {
-        continue;
+    if (!this.devMode) return;
+    this.clearWinningPaylines();
+
+    // Every path uses the evaluator's exact contributing positions. A single
+    // win cannot be inferred reliably from visible symbols (Wilds are best-pay).
+    const winningByLine = new Map(wins.map((win) => [win.payline, win]));
+    const radius = 12;
+    const contributingOpacity = 0.80;
+    const remainingOpacity = 0.40;
+    PAYLINES.forEach((rows, lineIndex) => {
+      if (!winningByLine.has(lineIndex + 1)) return;
+      const color = DEV_PAYLINE_COLORS[lineIndex];
+      const contributing = new Set(
+        (winningByLine.get(lineIndex + 1)?.positions ?? [])
+          .map(({ reel, row }) => `${reel}:${row}`),
+      );
+      const centers = rows.map((row, reel) => ({
+        x: reel * (REEL_WIDTH + GAP) + REEL_WIDTH / 2,
+        y: row * (REEL_HEIGHT + GAP) + REEL_HEIGHT / 2,
+        active: contributing.has(`${reel}:${row}`),
+      }));
+      const drawing = new Graphics();
+      for (let i = 0; i < centers.length - 1; i++) {
+        const from = centers[i];
+        const to = centers[i + 1];
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const distance = Math.hypot(dx, dy);
+        const ux = dx / distance;
+        const uy = dy / distance;
+        // Segments stop at the circle perimeter: no lines inside nodes.
+        drawing.moveTo(from.x + ux * radius, from.y + uy * radius);
+        drawing.lineTo(to.x - ux * radius, to.y - uy * radius);
+        drawing.stroke({
+          width: from.active && to.active ? 6 : 4,
+          color,
+          alpha: from.active && to.active ? contributingOpacity : remainingOpacity,
+        });
       }
-      displayedPaylines.add(win.payline);
-      const paylineIndex = win.payline - 1;
-      const payline = PAYLINES[paylineIndex];
-      if (!payline) {
-        continue;
-      }
-      const line = new Graphics();
-      for (
-        let reel = 0;
-        reel < payline.length;
-        reel++
-      ) {
-        const x =
-          reel * (REEL_WIDTH + GAP) +
-          REEL_WIDTH / 2;
-        const y =
-          payline[reel] * (REEL_HEIGHT + GAP) +
-          REEL_HEIGHT / 2;
-        if (reel === 0) {
-          line.moveTo(x, y);
+      centers.forEach(({ x, y, active }) => {
+        drawing.circle(x, y, radius);
+        if (active) {
+          drawing.fill({ color, alpha: contributingOpacity });
+          drawing.stroke({ color, alpha: contributingOpacity, width: 4 });
         } else {
-          line.lineTo(x, y);
+          drawing.stroke({ color, alpha: remainingOpacity, width: 4 });
         }
-      }
-      line.stroke({
-        width: 3,
-        color: DEV_PAYLINE_COLORS[paylineIndex],
-        alpha: 0.8,
       });
-      this.paylineLayer.addChild(line);
-    }
+      this.paylineLayer.addChild(drawing);
+    });
   }
   clearWinningPaylines(): void {
     this.paylineLayer.removeChildren();

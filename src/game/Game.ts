@@ -74,6 +74,9 @@ export class Game {
   ) {
     this.devReceipt = new DevReceipt(devReceiptHost);
     this.view = new GameView();
+    this.view.setDebugSnapshotSelectedHandler?.((snapshot) => {
+      this.devReceipt.scrollToGrid(snapshot.receiptSection, snapshot.cascadeIndex);
+    });
     this.spinReplayController = new SpinReplayController(this.view);
     app.stage.addChild(this.view);
     this.view.spinButton.on(
@@ -210,6 +213,7 @@ export class Game {
   setDevMode(enabled: boolean): void {
     this.devReceipt.setVisible(enabled);
     this.view.setDevMode(enabled);
+    this.view.setDebugNavigationEnabled?.(enabled && this.stateMachine.current === 'IDLE' && !this.spinReplayController.inProgress);
   }
   setAfterMidnightTriggerArmed(armed: boolean): boolean {
     if (this.stateMachine.current !== 'IDLE') {
@@ -240,12 +244,15 @@ export class Game {
     if (this.stateMachine.current !== 'IDLE' || this.spinReplayController.inProgress) {
       return false;
     }
-    return this.spinReplayController.replayLastSpin({
+    this.view.clearDebugNavigation?.();
+    const replayed = await this.spinReplayController.replayLastSpin({
       balance: this.balance,
       bet: this.bet,
       win: this.currentWin,
       activeIncrement: this.betIncrement,
     });
+    this.view.setDebugNavigationEnabled?.(true);
+    return replayed;
   }
   private async handleSpin(): Promise<void> {
     if (
@@ -275,6 +282,7 @@ export class Game {
         `BALANCE          $${balanceBeforeBet.toFixed(2)}`,
       ],
     );
+    this.view.clearDebugNavigation?.();
     this.view.clearWinningPaylines();
     this.stateMachine.transition(
       'SPINNING',
@@ -304,12 +312,6 @@ export class Game {
 
     this.currentGrid = cloneGrid(primary.grid);
     await this.view.animateReelStops(primary.grid);
-    this.devReceipt.event(
-      'STATE TRANSITION',
-      [
-        'IDLE → SPINNING',
-      ],
-    );
     this.spinNumber++;
     const featureMultiplier =
       this.nextSpinMultiplier;
@@ -339,12 +341,6 @@ export class Game {
     );
     this.stateMachine.transition(
       'EVALUATING',
-    );
-    this.devReceipt.event(
-      'STATE TRANSITION',
-      [
-        'SPINNING → EVALUATING',
-      ],
     );
     const initialResult =
       evaluatePrimaryGrid(
@@ -423,12 +419,6 @@ export class Game {
     this.stateMachine.transition(
       'WIN_PRESENTATION',
     );
-    this.devReceipt.event(
-      'STATE TRANSITION',
-      [
-        'EVALUATING → WIN_PRESENTATION',
-      ],
-    );
     this.view.displayResult(
       result.grid,
     );
@@ -444,12 +434,6 @@ export class Game {
     );
     this.stateMachine.transition(
       'CASCADING',
-    );
-    this.devReceipt.event(
-      'STATE TRANSITION',
-      [
-        'WIN_PRESENTATION → CASCADING',
-      ],
     );
     let cascadeGrid = cloneGrid(result.grid);
     let cascadeWins = [...result.wins];
@@ -467,14 +451,11 @@ export class Game {
         step.removed,
         cascadeGrid,
       );
-      this.view.displayWinningPaylines(cumulativeWins);
+      this.view.clearWinningPaylines();
       this.currentGrid = cloneGrid(cascadeGrid);
       this.devReceipt.cascadeGrid(cascadeGrid);
       await delay(CASCADE_DELAY);
       this.stateMachine.transition('EVALUATING');
-      this.devReceipt.event('STATE TRANSITION', [
-        'CASCADING → EVALUATING',
-      ]);
       const evaluation = evaluateWins(cascadeGrid);
       this.devReceipt.evaluation(evaluation.evaluations);
       this.devReceipt.winResult(evaluation.wins, this.bet);
@@ -486,12 +467,9 @@ export class Game {
       });
       if (cascadeWins.length > 0) {
         cumulativeWins.push(...cascadeWins);
-        this.view.displayWinningPaylines(cumulativeWins);
+        this.view.displayWinningPaylines(cascadeWins);
         await this.view.animateWinningSymbols(cascadeWins);
         this.stateMachine.transition('CASCADING');
-        this.devReceipt.event('STATE TRANSITION', [
-          'EVALUATING → CASCADING',
-        ]);
       }
     }
     const basePayoutMultiplier = cumulativeWins.reduce(
@@ -547,13 +525,15 @@ export class Game {
     if (!this.replayCapture) {
       return;
     }
-    this.spinReplayController.setReplay({
+    const completedReplay: LastSpinReplay = {
       ...this.replayCapture,
       finalGrid: cloneGrid(finalGrid),
       allWins: cloneWins(allWins),
       totalWin,
       finalBalance: this.replayCapture.balanceAfterBet + totalWin,
-    });
+    };
+    this.spinReplayController.setReplay(completedReplay);
+    this.view.setDebugSpinSnapshots?.(completedReplay);
     this.replayCapture = null;
   }
   private consumeForcedAfterMidnight(): boolean {
@@ -625,12 +605,13 @@ export class Game {
         `BALANCE AFTER   $${this.balance.toFixed(2)}`,
       ],
     );
+    this.devReceipt.scrollToBottom();
     this.view.displayResult(
       result.grid,
     );
-    this.view.displayWinningPaylines(
-      result.wins,
-    );
+    // The terminal grid is evaluated only after cascades have no more wins.
+    // Keep accumulated wins in the receipt/replay, never on the final reels.
+    this.view.clearWinningPaylines();
     this.view.updateHud(
       this.balance,
       this.bet,
@@ -647,13 +628,8 @@ export class Game {
     this.stateMachine.transition(
       'IDLE',
     );
+    this.view.setDebugNavigationEnabled?.(true);
     this.onAfterMidnightDevAvailabilityChanged?.(true);
-    this.devReceipt.event(
-      'STATE TRANSITION',
-      [
-        'EVALUATING → IDLE',
-      ],
-    );
   }
   private updateHud(): void {
     this.currentWin = 0;

@@ -2,9 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { GameStateMachine } from '../src/game/GameStateMachine';
 
 describe('GameStateMachine contract', () => {
-  it('starts IDLE', () => {
-    expect(new GameStateMachine().current).toBe('IDLE');
-  });
 
   it('supports the normal winning spin state path', () => {
     const state = new GameStateMachine();

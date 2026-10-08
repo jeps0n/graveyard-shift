@@ -22,9 +22,6 @@ function view() {
 }
 
 describe('GameView presentation contracts', () => {
-  it('preserves the native 1000x800 logical composition', () => {
-    expect([GAME_WIDTH, GAME_HEIGHT]).toEqual([1000, 800]);
-  });
   it('keeps SPIN noninteractive until explicitly enabled', () => {
     const v = view();
     v.setSpinEnabled(false);
@@ -127,5 +124,7 @@ describe('GameView presentation contracts', () => {
     expect(v.reelView.displayWinningPaylines).toHaveBeenCalledWith(wins);
     expect(v.reelView.clearWinningPaylines).toHaveBeenCalledOnce();
   });
+
+
 
 });

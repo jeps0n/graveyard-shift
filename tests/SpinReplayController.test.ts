@@ -73,8 +73,73 @@ describe('SpinReplayController contract', () => {
     expect(view.animateCascadeStep).toHaveBeenCalledWith(WIN.positions, CASCADE_GRID);
     expect(view.animateWinningSymbols).toHaveBeenCalledTimes(2);
     expect(view.animatePayoutBeat).toHaveBeenCalledWith(90, 340, 250);
+    expect(view.displayWinningPaylines).toHaveBeenCalled();
+    expect(view.clearWinningPaylines).toHaveBeenCalledTimes(3);
+    expect(view.clearWinningPaylines.mock.invocationCallOrder.at(-1))
+      .toBeGreaterThan(view.displayWinningPaylines.mock.invocationCallOrder.at(-1)!);
+    expect(view.displayResult).toHaveBeenLastCalledWith(CASCADE_GRID);
     expect(view.updateHud).toHaveBeenLastCalledWith(777, 25, 12, 25);
     expect(controller.inProgress).toBe(false);
     expect(availability).toHaveBeenLastCalledWith(true);
   });
+  it('leaves a zero-win replay terminal grid without payline graphics', async () => {
+    const view = makeView();
+    const controller = new SpinReplayController(view as never);
+    const noWinReplay = {
+      ...replay(),
+      primaryWins: [], cascades: [], allWins: [], totalWin: 0, finalBalance: 90,
+    };
+    controller.setReplay(noWinReplay);
+
+    const finished = controller.replayLastSpin({
+      balance: 90, bet: 10, win: 0, activeIncrement: 1,
+    });
+    await vi.runAllTimersAsync();
+
+    expect(await finished).toBe(true);
+    expect(view.displayWinningPaylines).not.toHaveBeenCalled();
+    expect(view.clearWinningPaylines).toHaveBeenCalledTimes(2);
+    expect(view.displayResult).toHaveBeenLastCalledWith(noWinReplay.finalGrid);
+    expect(view.animatePayoutBeat).not.toHaveBeenCalled();
+  });
+
+  it('clears historical paths after multiple cascade evaluations', async () => {
+    const view = makeView();
+    const controller = new SpinReplayController(view as never);
+    const multipleCascades = {
+      ...replay(),
+      cascades: [
+        { removed: WIN.positions, grid: CASCADE_GRID, wins: [CASCADE_WIN] },
+        { removed: CASCADE_WIN.positions, grid: GRID, wins: [] },
+      ],
+    };
+    controller.setReplay(multipleCascades);
+
+    const finished = controller.replayLastSpin({
+      balance: 340, bet: 10, win: 250, activeIncrement: 1,
+    });
+    await vi.runAllTimersAsync();
+
+    expect(await finished).toBe(true);
+    expect(view.animateCascadeStep).toHaveBeenCalledTimes(2);
+    expect(view.displayWinningPaylines).toHaveBeenCalledTimes(2);
+    expect(view.displayWinningPaylines).toHaveBeenNthCalledWith(1, [WIN]);
+    expect(view.displayWinningPaylines).toHaveBeenNthCalledWith(2, [CASCADE_WIN]);
+    expect(view.clearWinningPaylines).toHaveBeenCalledTimes(4);
+    const firstDraw = view.displayWinningPaylines.mock.invocationCallOrder[0];
+    const firstCascade = view.animateCascadeStep.mock.invocationCallOrder[0];
+    const secondDraw = view.displayWinningPaylines.mock.invocationCallOrder[1];
+    const secondClear = view.clearWinningPaylines.mock.invocationCallOrder[1];
+    const secondCascade = view.animateCascadeStep.mock.invocationCallOrder[1];
+    const thirdClear = view.clearWinningPaylines.mock.invocationCallOrder[2];
+    expect(firstDraw).toBeLessThan(firstCascade);
+    expect(firstCascade).toBeLessThan(secondClear);
+    expect(secondClear).toBeLessThan(secondDraw);
+    expect(secondDraw).toBeLessThan(secondCascade);
+    expect(secondCascade).toBeLessThan(thirdClear);
+    expect(view.displayResult).toHaveBeenLastCalledWith(multipleCascades.finalGrid);
+    expect(view.clearWinningPaylines.mock.invocationCallOrder.at(-1))
+      .toBeGreaterThan(view.displayWinningPaylines.mock.invocationCallOrder.at(-1)!);
+  });
+
 });

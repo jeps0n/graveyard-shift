@@ -49,6 +49,8 @@ vi.mock('../src/dev/DevReceipt', () => {
   return {
     DevReceipt: class {
       blur = vi.fn();
+      scrollToTop = vi.fn();
+      scrollToBottom = vi.fn();
       clear = vi.fn();
       event = vi.fn();
       spinStart = vi.fn();
@@ -318,6 +320,27 @@ describe('Game flow contract', () => {
     expect(getBalance(game)).toBe(160);
     expect(mathMocks.resolveCascadeStep).toHaveBeenCalledTimes(2);
   });
+  it('clears historical paylines on the terminal grid after every cascade', async () => {
+    mockWinningSpin({
+      primaryWins: [makeWin(2)],
+      cascadeWins: [makeWin(5, 'marge')],
+    });
+    const game = createGame();
+    setBet(game, 10);
+    await runSpin(game);
+
+    const view = (game as unknown as {
+      view: {
+        displayWinningPaylines: ReturnType<typeof vi.fn>;
+        clearWinningPaylines: ReturnType<typeof vi.fn>;
+      };
+    }).view;
+    expect(view.displayWinningPaylines).toHaveBeenCalledTimes(2);
+    expect(view.clearWinningPaylines).toHaveBeenCalledTimes(4);
+    expect(view.clearWinningPaylines.mock.invocationCallOrder.at(-1))
+      .toBeGreaterThan(view.displayWinningPaylines.mock.invocationCallOrder.at(-1)!);
+  });
+
   it('applies an armed multiplier to the entire spin including cascade wins', async () => {
     mockWinningSpin({
       primaryWins: [makeWin(2)],
@@ -473,4 +496,64 @@ describe('Game flow contract', () => {
     expect(getState(game)).toBe('IDLE');
     expect(getBet(game)).toBe(activeBet);
   });
+
+  it('enforces wager limits and ignores redundant increases', () => {
+    const game = createGame();
+    const controls = game as unknown as {
+      increaseBet: () => void;
+      decreaseBet: () => void;
+      clearBet: () => void;
+      setMaxBet: () => void;
+      quickAddBet: (increment: 1 | 5 | 25) => void;
+      view: { animateWagerBeat: ReturnType<typeof vi.fn> };
+    };
+    controls.decreaseBet();
+    expect(getBet(game)).toBe(0);
+    controls.quickAddBet(25);
+    expect(getBet(game)).toBe(25);
+    expect(getBetIncrement(game)).toBe(25);
+    controls.increaseBet();
+    expect(getBet(game)).toBe(50);
+    controls.setMaxBet();
+    expect(getBet(game)).toBe(100);
+    const beatCount = controls.view.animateWagerBeat.mock.calls.length;
+    controls.increaseBet();
+    expect(getBet(game)).toBe(100);
+    expect(controls.view.animateWagerBeat).toHaveBeenCalledTimes(beatCount);
+    controls.decreaseBet();
+    expect(getBet(game)).toBe(75);
+    controls.clearBet();
+    expect(getBet(game)).toBe(0);
+    controls.clearBet();
+    expect(getBet(game)).toBe(0);
+  });
+
+  it('rejects spin requests when the wager exceeds the available balance', async () => {
+    const game = createGame();
+    setBet(game, 101);
+    await runSpin(game);
+    expect(getBalance(game)).toBe(100);
+    expect(mathMocks.generatePrimaryGrid).not.toHaveBeenCalled();
+    expect(getState(game)).toBe('IDLE');
+  });
+
+  it('keeps replay and feature arming unavailable while the game is busy', async () => {
+    mockNoWinSpin();
+    const game = createGame();
+    setBet(game, 10);
+    const view = (game as unknown as {
+      view: { animateBalanceDeductionBeat: ReturnType<typeof vi.fn> };
+    }).view;
+    let release!: () => void;
+    view.animateBalanceDeductionBeat.mockImplementationOnce(
+      () => new Promise<void>(resolve => { release = resolve; }),
+    );
+    const spinning = runSpin(game);
+    expect(game.setAfterMidnightTriggerArmed(true)).toBe(false);
+    await expect(game.replayLastSpin()).resolves.toBe(false);
+    release();
+    await spinning;
+    expect(game.setAfterMidnightTriggerArmed(true)).toBe(true);
+  });
+
 });
