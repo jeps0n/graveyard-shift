@@ -18,11 +18,13 @@ canvas {
 /* ─────────────────────────────────────────────
    Presentation Shell
    ───────────────────────────────────────────── */
-/* Three-region desktop composition: left atmosphere, playable game, right info/dev. */
+/* The center follows the rendered game's width on desktop. Side artwork
+   shares the remaining space equally; its visibility breakpoint is unchanged. */
 .presentation-shell {
+  --game-column-width: 52.083333%;
   display: grid;
   grid-template-columns:
-    minmax(0, 23.958333%) minmax(0, 52.083334%) minmax(0, 23.958333%);
+    minmax(0, 1fr) minmax(0, var(--game-column-width)) minmax(0, 1fr);
   width: 100vw;
   height: 100vh;
   overflow: hidden;
@@ -480,6 +482,17 @@ canvas {
   }
   .presentation-side {
     visibility: hidden;
+  }
+}
+/* Compact chrome is content-driven only when side artwork is hidden.
+   Padding is a shared design token, not a viewport-specific height. */
+@media (max-width: 1000px) {
+  .game-host {
+    --compact-chrome-padding: 6px;
+  }
+  .art-placeholder--locals,
+  .portfolio-footer {
+    min-height: 0;
   }
 }
 /* Footer compacts progressively after the main game-only breakpoint. */

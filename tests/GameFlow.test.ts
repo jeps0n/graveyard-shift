@@ -415,4 +415,62 @@ describe('Game flow contract', () => {
     expect(getNextSpinMultiplier(game)).toBe(10);
     expect(view.showAfterMidnight).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects overlapping spin requests while the first animation is pending', async () => {
+    mockNoWinSpin();
+    const game = createGame();
+    setBet(game, 10);
+    const view = game.view as unknown as {
+      animateBalanceDeductionBeat: ReturnType<typeof vi.fn>;
+      setSpinBusy: ReturnType<typeof vi.fn>;
+    };
+    let releaseDeduction!: () => void;
+    view.animateBalanceDeductionBeat.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { releaseDeduction = resolve; }),
+    );
+    const firstSpin = runSpin(game);
+    expect(getState(game)).toBe('SPINNING');
+    expect(getBalance(game)).toBe(90);
+    await runSpin(game);
+    expect(getBalance(game)).toBe(90);
+    expect(view.animateBalanceDeductionBeat).toHaveBeenCalledTimes(1);
+    releaseDeduction();
+    await firstSpin;
+    expect(mathMocks.generatePrimaryGrid).toHaveBeenCalledTimes(1);
+    expect(getState(game)).toBe('IDLE');
+    expect(view.setSpinBusy).toHaveBeenCalledWith(false);
+  });
+
+  it('ignores wager adjustments and clearing while a spin is pending', async () => {
+    mockNoWinSpin();
+    const game = createGame();
+    setBet(game, 10);
+    const view = game.view as unknown as {
+      animateBalanceDeductionBeat: ReturnType<typeof vi.fn>;
+      animateWagerBeat: ReturnType<typeof vi.fn>;
+    };
+    let releaseDeduction!: () => void;
+    view.animateBalanceDeductionBeat.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { releaseDeduction = resolve; }),
+    );
+    const spin = runSpin(game);
+    expect(getState(game)).toBe('SPINNING');
+    const activeBet = getBet(game);
+    const activeBalance = getBalance(game);
+    const controls = game as unknown as {
+      increaseBet: () => void;
+      decreaseBet: () => void;
+      clearBet: () => void;
+    };
+    controls.increaseBet();
+    controls.decreaseBet();
+    controls.clearBet();
+    expect(getBet(game)).toBe(activeBet);
+    expect(getBalance(game)).toBe(activeBalance);
+    expect(view.animateWagerBeat).not.toHaveBeenCalled();
+    releaseDeduction();
+    await spin;
+    expect(getState(game)).toBe('IDLE');
+    expect(getBet(game)).toBe(activeBet);
+  });
 });

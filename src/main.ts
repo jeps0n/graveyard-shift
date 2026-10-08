@@ -175,32 +175,75 @@ game.setAfterMidnightDevTriggerConsumedHandler(() => {
 game.setAfterMidnightDevAvailabilityHandler((available) => {
   devModeController.setAfterMidnightAvailable(available);
 });
+// Match the desktop center column to the game’s height-limited width.
+// The remaining space is divided evenly between the existing artwork panels.
+// The CSS breakpoint still owns when those panels are hidden.
+const ARTWORK_BREAKPOINT = 1000;
+const DESKTOP_GAME_WIDTH_FRACTION = 1000 / 1920;
+
 function resizeGame(): void {
-  const width = Math.max(1, gameHost.clientWidth);
+  const viewportWidth = shell.clientWidth;
   const height = Math.max(1, gameHost.clientHeight);
-  app.renderer.resize(width, height);
-  // ─────────────────────────────────────────────
-  // Vertical Safe Region
-  // ─────────────────────────────────────────────
-  // Reserve only the Locals bar's minimum responsive height for gameplay
-  // layout. The visible bar is allowed to grow downward afterward to meet the
-  // cabinet exactly, so it absorbs unused top space without moving/rescaling
-  // the playable GameView.
+  // The desktop chrome retains its established CSS minimums. In the
+  // artwork-hidden layout, derive compact minimums from the actual text and
+  // border sizes instead of assuming a fixed height for each resolution.
+  const artworkHidden = viewportWidth <= ARTWORK_BREAKPOINT;
   const localsStyle = getComputedStyle(localsBarPlaceholder);
-  const reservedTopBarHeight =
-    Number.parseFloat(localsStyle.minHeight) ||
-    localsBarPlaceholder.getBoundingClientRect().height;
   const footerStyle = getComputedStyle(footerArtworkPlaceholder);
-  const reservedFooterBarHeight =
-    Number.parseFloat(footerStyle.minHeight) ||
-    footerArtworkPlaceholder.getBoundingClientRect().height;
+
+  function contentMinimum(
+    element: HTMLElement,
+    content: HTMLElement,
+    style: CSSStyleDeclaration,
+  ): number {
+    const contentHeight = Math.max(
+      0,
+      ...Array.from(content.children, (child) =>
+        child.getBoundingClientRect().height,
+      ),
+    );
+    const borders =
+      Number.parseFloat(style.borderTopWidth) +
+      Number.parseFloat(style.borderBottomWidth);
+    const breathingRoom = Number.parseFloat(
+      getComputedStyle(element).getPropertyValue('--compact-chrome-padding'),
+    ) || 0;
+    return Math.ceil(contentHeight + borders + 2 * breathingRoom);
+  }
+
+  const reservedTopBarHeight = artworkHidden
+    ? contentMinimum(localsBarPlaceholder, localsBarContent, localsStyle)
+    : Number.parseFloat(localsStyle.minHeight) ||
+      localsBarPlaceholder.getBoundingClientRect().height;
+  const reservedFooterBarHeight = artworkHidden
+    ? contentMinimum(footerArtworkPlaceholder, footerContent, footerStyle)
+    : Number.parseFloat(footerStyle.minHeight) ||
+      footerArtworkPlaceholder.getBoundingClientRect().height;
+
   const playableTop = reservedTopBarHeight;
-  const playableBottom = Math.max(playableTop + 1, height - reservedFooterBarHeight);
+  const playableBottom = Math.max(
+    playableTop + 1,
+    height - reservedFooterBarHeight,
+  );
   const playableHeight = Math.max(1, playableBottom - playableTop);
-  const scaleX = width / GAME_WIDTH;
   const scaleY = playableHeight / GAME_HEIGHT;
-  const adjustedScaleY = scaleY >= 0.97 ? 1 : scaleY;
-  const scale = Math.min(scaleX, adjustedScaleY);
+  // Retain the existing desktop near-native snap. Docked layouts must use
+  // the actual height limit so width-fit is chosen only when it truly fits.
+  const adjustedScaleY = !artworkHidden && scaleY >= 0.97 ? 1 : scaleY;
+
+  if (viewportWidth > ARTWORK_BREAKPOINT) {
+    // Preserve the baseline center width as a maximum. Only recover width
+    // that the game cannot use because the available height limits its scale.
+    const baselineWidth = viewportWidth * DESKTOP_GAME_WIDTH_FRACTION;
+    const gameWidth = Math.min(baselineWidth, GAME_WIDTH * adjustedScaleY);
+    shell.style.setProperty('--game-column-width', `${gameWidth}px`);
+  } else {
+    shell.style.removeProperty('--game-column-width');
+  }
+
+  const width = Math.max(1, gameHost.clientWidth);
+  app.renderer.resize(width, height);
+  const scale = Math.min(width / GAME_WIDTH, adjustedScaleY);
   game.view.scale.set(scale);
   game.view.x = (width - GAME_WIDTH * scale) / 2;
   // Preserve the reel-centered composition when space allows, then clamp the translated
@@ -232,6 +275,36 @@ function resizeGame(): void {
     Math.ceil(height - gameBottom)
   );
   footerArtworkPlaceholder.style.height = `${flushFooterHeight}px`;
+
+  // Development-only geometry diagnostics. No layout or scaling changes.
+  // Open the browser console and resize/dock the window to compare viewports.
+  if (import.meta.env.DEV) {
+    const renderedGameWidth = GAME_WIDTH * scale;
+    const horizontalGutter = Math.max(0, (width - renderedGameWidth) / 2);
+    const widthScale = width / GAME_WIDTH;
+    const heightScale = adjustedScaleY;
+    const verticalHeadroom = playableHeight - GAME_HEIGHT * scale;
+
+    console.table({
+      'Viewport width (px)': window.innerWidth,
+      'Viewport height (px)': window.innerHeight,
+      'Game host width (px)': Number(width.toFixed(2)),
+      'Game host height (px)': Number(height.toFixed(2)),
+      'Artwork visible': viewportWidth > ARTWORK_BREAKPOINT,
+      'Locals reserved (px)': Number(reservedTopBarHeight.toFixed(2)),
+      'Footer reserved (px)': Number(reservedFooterBarHeight.toFixed(2)),
+      'Playable height (px)': Number(playableHeight.toFixed(2)),
+      'Width scale': Number(widthScale.toFixed(4)),
+      'Height scale (adjusted)': Number(heightScale.toFixed(4)),
+      'Applied scale': Number(scale.toFixed(4)),
+      'Limiting dimension': widthScale <= heightScale ? 'width' : 'height',
+      'Rendered game width (px)': Number(renderedGameWidth.toFixed(2)),
+      'Gutter per side (px)': Number(horizontalGutter.toFixed(2)),
+      'Vertical headroom (px)': Number(verticalHeadroom.toFixed(2)),
+      'Locals displayed (px)': Number(flushLocalsHeight.toFixed(2)),
+      'Footer displayed (px)': Number(flushFooterHeight.toFixed(2)),
+    });
+  }
 }
 window.addEventListener('resize', resizeGame);
 resizeGame();

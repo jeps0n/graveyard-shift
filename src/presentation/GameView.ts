@@ -16,6 +16,10 @@ import type {
 import type { MidnightChoice } from '../features/AfterMidnight';
 import { AfterMidnightView } from './AfterMidnightView';
 import { ReelView } from './ReelView';
+import { createBetButton, updateBetControls, applySpinControlState } from './BettingControls';
+import type { BettingHost } from './BettingControls';
+import { createGameHud, animateWagerBeat, animateBalanceDeductionBeat, animateWinCreditBeat, animateBalanceCreditBeat, animatePayoutBeat, updateReplayHud, updateHud } from './GameHud';
+import type { HudHost } from './GameHud';
 export const GAME_WIDTH = 1000;
 export const GAME_HEIGHT = 800;
 // ─────────────────────────────────────────────
@@ -26,8 +30,8 @@ export const GAME_HEIGHT = 800;
 export class GameView extends Container {
   readonly spinButton: Graphics;
   private readonly spinText: Text;
-  private spinEnabledRequested = false;
-  private spinBusy = false;
+  public spinEnabledRequested = false;
+  public spinBusy = false;
   readonly betDownButton: Graphics;
   readonly clearBetButton: Graphics;
   readonly betUpButton: Graphics;
@@ -37,12 +41,12 @@ export class GameView extends Container {
   readonly bet25Button: Graphics;
   private readonly reelView: ReelView;
   private readonly afterMidnightView: AfterMidnightView;
-  private readonly balanceLabel: Text;
-  private readonly wagerLabel: Text;
-  private readonly winLabel: Text;
-  private readonly balanceText: Text;
-  private readonly betText: Text;
-  private readonly winText: Text;
+  public readonly balanceLabel: Text;
+  public readonly wagerLabel: Text;
+  public readonly winLabel: Text;
+  public readonly balanceText: Text;
+  public readonly betText: Text;
+  public readonly winText: Text;
   private readonly nextSpinMultiplierText: Text;
   private readonly nextSpinMultiplierRecess = new Graphics();
   // ─────────────────────────────────────────────
@@ -114,96 +118,13 @@ export class GameView extends Container {
     // HUD / Wager Controls
     // ─────────────────────────────────────────────
     // Money readouts share one aligned baseline and visual hierarchy.
-    const balanceLabel = new Text({
-      text: 'BALANCE',
-      style: {
-        fill: 0xf2c46d,
-        stroke: {
-          color: 0x1a1208,
-          width: 1,
-        },
-        fontSize: 12,
-        fontWeight: 'bold',
-        letterSpacing: 1.5,
-      },
-    });
-    balanceLabel.anchor.set(0.5);
-    balanceLabel.x = 262;
-    balanceLabel.y = 546;
-    this.addChild(balanceLabel);
-    this.balanceLabel = balanceLabel;
-    this.balanceText = new Text({
-      text: '$100.00',
-      style: {
-        fill: 0xffffff,
-        fontSize: 20,
-        fontWeight: 'bold',
-      },
-    });
-    this.balanceText.anchor.set(0.5);
-    this.balanceText.x = 262;
-    this.balanceText.y = 569;
-    this.addChild(this.balanceText);
-    const wagerLabel = new Text({
-      text: 'WAGER',
-      style: {
-        fill: 0xf2c46d,
-        stroke: {
-          color: 0x1a1208,
-          width: 1,
-        },
-        fontSize: 12,
-        fontWeight: 'bold',
-        letterSpacing: 1.5,
-      },
-    });
-    wagerLabel.anchor.set(0.5);
-    wagerLabel.x = 502;
-    wagerLabel.y = 546;
-    this.addChild(wagerLabel);
-    this.wagerLabel = wagerLabel;
-    this.betText = new Text({
-      text: '$0.00',
-      style: {
-        fill: 0xffffff,
-        fontSize: 22,
-        fontWeight: 'bold',
-      },
-    });
-    this.betText.anchor.set(0.5);
-    this.betText.x = 502;
-    this.betText.y = 569;
-    this.addChild(this.betText);
-    const winLabel = new Text({
-      text: 'WIN',
-      style: {
-        fill: 0xf2c46d,
-        stroke: {
-          color: 0x1a1208,
-          width: 1,
-        },
-        fontSize: 12,
-        fontWeight: 'bold',
-        letterSpacing: 1.5,
-      },
-    });
-    winLabel.anchor.set(0.5);
-    winLabel.x = 742;
-    winLabel.y = 546;
-    this.addChild(winLabel);
-    this.winLabel = winLabel;
-    this.winText = new Text({
-      text: '$0.00',
-      style: {
-        fill: 0xffffff,
-        fontSize: 20,
-        fontWeight: 'bold',
-      },
-    });
-    this.winText.anchor.set(0.5);
-    this.winText.x = 742;
-    this.winText.y = 569;
-    this.addChild(this.winText);
+    const hud = createGameHud(this);
+    this.balanceLabel = hud.balanceLabel;
+    this.wagerLabel = hud.wagerLabel;
+    this.winLabel = hud.winLabel;
+    this.balanceText = hud.balanceText;
+    this.betText = hud.betText;
+    this.winText = hud.winText;
     const betIncrementText = new Text({
       text: 'BET INCREMENT',
       style: {
@@ -224,49 +145,49 @@ export class GameView extends Container {
     // Hybrid quick-add controls:
     // clicking one immediately adds that amount and also makes it
     // the active value used by the + / − controls.
-    this.bet1Button = this.createBetButton(
+    this.bet1Button = createBetButton(
       '$1',
       402,
       634,
       60,
       34,
     );
-    this.bet5Button = this.createBetButton(
+    this.bet5Button = createBetButton(
       '$5',
       470,
       634,
       60,
       34,
     );
-    this.bet25Button = this.createBetButton(
+    this.bet25Button = createBetButton(
       '$25',
       538,
       634,
       60,
       34,
     );
-    this.clearBetButton = this.createBetButton(
+    this.clearBetButton = createBetButton(
       'CLEAR',
       348,
       680,
       96,
       34,
     );
-    this.betDownButton = this.createBetButton(
+    this.betDownButton = createBetButton(
       '−',
       452,
       680,
       44,
       34,
     );
-    this.betUpButton = this.createBetButton(
+    this.betUpButton = createBetButton(
       '+',
       504,
       680,
       44,
       34,
     );
-    this.maxBetButton = this.createBetButton(
+    this.maxBetButton = createBetButton(
       'MAX BET',
       556,
       678,
@@ -375,348 +296,24 @@ export class GameView extends Container {
     return framing;
   }
 
-  private createBetButton(
-    label: string,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-  ): Graphics {
-    const button = new Graphics();
-    const text = new Text({
-      text: label,
-      style: {
-        fill: 0xffffff,
-        fontSize: label === 'MAX BET' || label === 'CLEAR' ? 13 : 20,
-        fontWeight: 'bold',
-      },
-    });
-    text.anchor.set(0.5);
-    text.x = width / 2;
-    text.y = height / 2;
-    button.addChild(text);
-    // Center the transform origin so the press beat does not shift the button.
-    button.pivot.set(width / 2, height / 2);
-    button.x = x + width / 2;
-    button.y = y + height / 2;
-    button.eventMode = 'static';
-    button.cursor = 'pointer';
-    button.clear()
-      .roundRect(
-        0,
-        0,
-        width,
-        height,
-        10,
-      )
-      .fill({
-        color: 0x15191f,
-        alpha: 0.96,
-      })
-      .stroke({
-        width: 2,
-        color: 0x444b55,
-      });
-    button.on('pointerover', () => {
-      if (button.eventMode !== 'static') {
-        return;
-      }
-      gsap.to(button, {
-        alpha: 0.9,
-        duration: 0.1,
-        overwrite: true,
-      });
-    });
-    button.on('pointerout', () => {
-      gsap.to(button, {
-        alpha: button.eventMode === 'static' ? 1 : 0.12,
-        duration: 0.1,
-        overwrite: true,
-      });
-      gsap.to(button.scale, {
-        x: 1,
-        y: 1,
-        duration: 0.1,
-        overwrite: true,
-      });
-    });
-    button.on('pointerdown', () => {
-      if (button.eventMode !== 'static') {
-        return;
-      }
-      gsap.to(button.scale, {
-        x: 0.96,
-        y: 0.96,
-        duration: 0.07,
-        overwrite: true,
-      });
-    });
-    button.on('pointerup', () => {
-      gsap.to(button.scale, {
-        x: 1,
-        y: 1,
-        duration: 0.12,
-        ease: 'back.out(2)',
-        overwrite: true,
-      });
-    });
-    button.on('pointerupoutside', () => {
-      gsap.to(button.scale, {
-        x: 1,
-        y: 1,
-        duration: 0.1,
-        overwrite: true,
-      });
-    });
-    return button;
-  }
+
   // Updates hybrid increment selection and wager-control availability.
-  updateBetControls(
-    balance: number,
-    bet: number,
-    activeIncrement: 1 | 5 | 25,
-  ): void {
-    const incrementButtons: Array<{
-      button: Graphics;
-      value: 1 | 5 | 25;
-      width: number;
-    }> = [
-        { button: this.bet1Button, value: 1, width: 60 },
-        { button: this.bet5Button, value: 5, width: 60 },
-        { button: this.bet25Button, value: 25, width: 60 },
-      ];
-    incrementButtons.forEach(({
-      button,
-      value,
-      width,
-    }) => {
-      const selected = value === activeIncrement;
-      button.clear()
-        .roundRect(0, 0, width, 34, 10)
-        .fill({
-          color: selected
-            ? 0x8b1e2d
-            : 0x15191f,
-          alpha: 0.96,
-        })
-        .stroke({
-          width: selected ? 3 : 2,
-          color: selected
-            ? 0xd9dde3
-            : 0x444b55,
-        });
-      button.alpha = balance > 0 ? 1 : 0.12;
-      button.eventMode = balance > 0
-        ? 'static'
-        : 'none';
-      button.cursor = balance > 0
-        ? 'pointer'
-        : 'default';
-    });
-    const maxBet = Math.min(balance, 100);
-    const canClear = bet > 0;
-    const canDecrease = bet > 0;
-    const canIncrease = bet < maxBet;
-    const canMaxBet = balance > 0 && bet < maxBet;
-    this.clearBetButton.alpha = canClear ? 1 : 0.12;
-    this.betDownButton.alpha = canDecrease ? 1 : 0.12;
-    this.betUpButton.alpha = canIncrease ? 1 : 0.12;
-    this.maxBetButton.alpha = canMaxBet ? 1 : 0.12;
-    this.clearBetButton.eventMode =
-      canClear ? 'static' : 'none';
-    this.betDownButton.eventMode =
-      canDecrease ? 'static' : 'none';
-    this.betUpButton.eventMode =
-      canIncrease ? 'static' : 'none';
-    this.maxBetButton.eventMode =
-      canMaxBet ? 'static' : 'none';
-    this.clearBetButton.cursor =
-      canClear ? 'pointer' : 'default';
-    this.betDownButton.cursor =
-      canDecrease ? 'pointer' : 'default';
-    this.betUpButton.cursor =
-      canIncrease ? 'pointer' : 'default';
-    this.maxBetButton.cursor =
-      canMaxBet ? 'pointer' : 'default';
-    this.setSpinEnabled(bet > 0);
+  updateBetControls(balance: number, bet: number, activeIncrement: 1 | 5 | 25): void {
+    updateBetControls(this as unknown as BettingHost, balance, bet, activeIncrement);
   }
   // Small one-shot emphasis used whenever the wager changes.
-  animateWagerBeat(
-    peakScale = 1.06,
-  ): void {
-    gsap.killTweensOf(this.betText.scale);
-    this.betText.scale.set(1);
-    gsap.timeline()
-      .to(this.betText.scale, {
-        x: peakScale,
-        y: peakScale,
-        duration: 0.08,
-        ease: 'power2.out',
-      })
-      .to(this.betText.scale, {
-        x: 1,
-        y: 1,
-        duration: 0.1,
-        ease: 'power2.inOut',
-      });
-  }
+  animateWagerBeat(peakScale = 1.06): void { animateWagerBeat(this as unknown as HudHost, peakScale); }
   // Brief financial feedback beats. These are presentation-only and never
   // mutate authoritative balance/win state.
-  async animateBalanceDeductionBeat(
-    balanceBeforeBet: number,
-    balanceAfterBet: number,
-  ): Promise<void> {
-    gsap.killTweensOf(this.balanceText.scale);
-    this.balanceText.scale.set(1);
-    this.balanceText.style.fill = 0x63dbe8;
-    this.balanceText.text = this.formatMoney(balanceBeforeBet);
-    const displayedBalance = { value: balanceBeforeBet };
-    await new Promise<void>((resolve) => {
-      const timeline = gsap.timeline({
-        onComplete: () => {
-          this.balanceText.text = this.formatMoney(balanceAfterBet);
-          this.balanceText.style.fill = 0xffffff;
-          resolve();
-        },
-      });
-      timeline
-        .to(displayedBalance, {
-          value: balanceAfterBet,
-          duration: 0.2,
-          ease: 'none',
-          onUpdate: () => {
-            this.balanceText.text = this.formatMoney(displayedBalance.value);
-          },
-        }, 0)
-        .to(this.balanceText.scale, {
-          x: 1.05,
-          y: 1.05,
-          duration: 0.08,
-          ease: 'power2.out',
-        }, 0)
-        .to(this.balanceText.scale, {
-          x: 1,
-          y: 1,
-          duration: 0.12,
-          ease: 'power2.inOut',
-        });
-    });
-  }
-  async animateWinCreditBeat(): Promise<void> {
-    await this.animateMoneyBeat(this.winText, 0x62d98b, 1.07);
-  }
-  async animateBalanceCreditBeat(): Promise<void> {
-    await this.animateMoneyBeat(this.balanceText, 0x62d98b, 1.05);
-  }
-  async animatePayoutBeat(
-    balanceBeforePayout: number,
-    finalBalance: number,
-    totalWin: number,
-  ): Promise<void> {
-    gsap.killTweensOf(this.winText.scale);
-    gsap.killTweensOf(this.balanceText.scale);
-    this.winText.scale.set(1);
-    this.balanceText.scale.set(1);
-    this.winText.text = '$0.00';
-    this.balanceText.text = this.formatMoney(balanceBeforePayout);
-    this.winText.style.fill = 0x62d98b;
-    this.balanceText.style.fill = 0xffffff;
-    const displayedWin = { value: 0 };
-    const displayedBalance = { value: balanceBeforePayout };
-    await new Promise<void>((resolve) => {
-      const timeline = gsap.timeline({
-        onComplete: () => {
-          this.winText.text = this.formatMoney(totalWin);
-          this.balanceText.text = this.formatMoney(finalBalance);
-          this.winText.style.fill = 0xffffff;
-          this.balanceText.style.fill = 0xffffff;
-          resolve();
-        },
-      });
-      timeline
-        .to(displayedWin, {
-          value: totalWin,
-          duration: 0.2,
-          ease: 'none',
-          onUpdate: () => {
-            this.winText.text = this.formatMoney(displayedWin.value);
-          },
-        }, 0)
-        .to(this.winText.scale, {
-          x: 1.07,
-          y: 1.07,
-          duration: 0.08,
-          ease: 'power2.out',
-        }, 0)
-        .to(this.winText.scale, {
-          x: 1,
-          y: 1,
-          duration: 0.12,
-          ease: 'power2.inOut',
-          onComplete: () => {
-            this.winText.style.fill = 0xffffff;
-            this.balanceText.style.fill = 0x62d98b;
-          },
-        })
-        .to(displayedBalance, {
-          value: finalBalance,
-          duration: 0.2,
-          ease: 'none',
-          onUpdate: () => {
-            this.balanceText.text = this.formatMoney(displayedBalance.value);
-          },
-        })
-        .to(this.balanceText.scale, {
-          x: 1.05,
-          y: 1.05,
-          duration: 0.08,
-          ease: 'power2.out',
-        }, '<')
-        .to(this.balanceText.scale, {
-          x: 1,
-          y: 1,
-          duration: 0.12,
-          ease: 'power2.inOut',
-        });
-    });
-  }
-  private async animateMoneyBeat(
-    text: Text,
-    accentColor: number,
-    peakScale: number,
-  ): Promise<void> {
-    gsap.killTweensOf(text.scale);
-    text.scale.set(1);
-    text.style.fill = accentColor;
-    await new Promise<void>((resolve) => {
-      const timeline = gsap.timeline({
-        onComplete: () => {
-          text.style.fill = 0xffffff;
-          resolve();
-        },
-      });
-      timeline
-        .to(text.scale, {
-          x: peakScale,
-          y: peakScale,
-          duration: 0.08,
-          ease: 'power2.out',
-        }, 0)
-        .to(text.scale, {
-          x: 1,
-          y: 1,
-          duration: 0.12,
-          ease: 'power2.inOut',
-        });
-    });
-  }
+  async animateBalanceDeductionBeat(before: number, after: number): Promise<void> { await animateBalanceDeductionBeat(this as unknown as HudHost, before, after); }
+  async animateWinCreditBeat(): Promise<void> { await animateWinCreditBeat(this as unknown as HudHost); }
+  async animateBalanceCreditBeat(): Promise<void> { await animateBalanceCreditBeat(this as unknown as HudHost); }
+  async animatePayoutBeat(before: number, after: number, win: number): Promise<void> { await animatePayoutBeat(this as unknown as HudHost, before, after, win); }
   // ─────────────────────────────────────────────
   // Spin Control State
   // ─────────────────────────────────────────────
   // Enables or disables player interaction with the main spin control.
-  setSpinEnabled(
-    enabled: boolean,
-  ): void {
+  setSpinEnabled(enabled: boolean): void {
     this.spinEnabledRequested = enabled;
     this.applySpinControlState();
   }
@@ -728,14 +325,7 @@ export class GameView extends Container {
     this.spinText.style.fontSize = busy ? 20 : 26;
     this.applySpinControlState();
   }
-  private applySpinControlState(): void {
-    const interactive = this.spinEnabledRequested && !this.spinBusy;
-    this.spinButton.eventMode = interactive ? 'static' : 'none';
-    this.spinButton.cursor = interactive ? 'pointer' : 'default';
-    const alpha = this.spinBusy ? 0.48 : (this.spinEnabledRequested ? 1 : 0.12);
-    this.spinButton.alpha = alpha;
-    this.spinText.alpha = alpha;
-  }
+  private applySpinControlState(): void { applySpinControlState(this as unknown as BettingHost); }
 setNextSpinMultiplier(multiplier: number): void {
   this.nextSpinMultiplierRecess.visible = multiplier > 1;
   this.nextSpinMultiplierText.visible = multiplier > 1;
@@ -844,49 +434,12 @@ setNextSpinMultiplier(multiplier: number): void {
   clearWinningPaylines(): void {
     this.reelView.clearWinningPaylines();
   }
-  private formatMoney(value: number): string {
-    return `$${value.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  }
   // ─────────────────────────────────────────────
   // HUD Updates
   // ─────────────────────────────────────────────
   // Replay HUD values are historical presentation only. They never mutate
   // the authoritative live balance, wager, or win state.
-  updateReplayHud(
-    balance: number,
-    bet: number,
-    win: number,
-  ): void {
-    this.balanceLabel.text = 'BALANCE (REPLAY)';
-    this.wagerLabel.text = 'WAGER (REPLAY)';
-    this.winLabel.text = 'WIN (REPLAY)';
-    this.balanceText.text = this.formatMoney(balance);
-    this.betText.text = this.formatMoney(bet);
-    this.winText.text = this.formatMoney(win);
-  }
+  updateReplayHud(balance: number, bet: number, win: number): void { updateReplayHud(this as unknown as HudHost, balance, bet, win); }
   // Updates all player-facing HUD values from the current game state.
-  updateHud(
-    balance: number,
-    bet: number,
-    win: number,
-    activeIncrement: 1 | 5 | 25,
-  ): void {
-    this.balanceLabel.text = 'BALANCE';
-    this.wagerLabel.text = 'WAGER';
-    this.winLabel.text = 'WIN';
-    this.balanceText.text =
-      this.formatMoney(balance);
-    this.betText.text =
-      this.formatMoney(bet);
-    this.winText.text =
-      this.formatMoney(win);
-    this.updateBetControls(
-      balance,
-      bet,
-      activeIncrement,
-    );
-  }
+  updateHud(balance: number, bet: number, win: number, activeIncrement: 1 | 5 | 25): void { updateHud(this as unknown as HudHost, balance, bet, win, activeIncrement); }
 }
