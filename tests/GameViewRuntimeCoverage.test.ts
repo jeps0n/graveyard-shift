@@ -48,11 +48,13 @@ describe('GameView real scene construction and integration', () => {
     const view: any = createView();
     const selected = vi.fn();
     view.setDebugSnapshotSelectedHandler(selected);
-    const snapshot = { grid: GRID, wins: [], label: 'Final Grid' };
+    const snapshot = { grid: GRID.map((reel) => [...reel]), wins: [], label: 'Final Grid' };
+    const originalGrid = snapshot.grid.map((reel) => [...reel]);
     // Exercise the same callback registered by GameView's constructor.
     view.debugInspector.onSelect(snapshot);
     expect(view.reelView.displayedGrid).toEqual(GRID);
     expect(view.reelView.paylineLayer.children).toHaveLength(0);
     expect(selected).toHaveBeenCalledWith(snapshot);
+    expect(snapshot.grid).toEqual(originalGrid);
   });
 });

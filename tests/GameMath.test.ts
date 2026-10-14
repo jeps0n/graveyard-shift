@@ -35,7 +35,7 @@ describe('GameMath contract - paylines and payouts', () => {
 
   it('pays 5-of-a-kind from reel 1 left-to-right', () => {
     const win = paylineWin(gridWithTopRow(['dice', 'dice', 'dice', 'dice', 'dice']), 1);
-    expect(win).toMatchObject({ symbol: 'dice', count: 5, payoutMultiplier: 15, payline: 1 });
+    expect(win).toMatchObject({ symbol: 'dice', count: 5, payoutMultiplier: 16, payline: 1 });
   });
 
   it('does not pay a sequence that begins after reel 1', () => {
@@ -52,8 +52,8 @@ describe('GameMath contract - paylines and payouts', () => {
     const grid: ReelGrid = Array.from({ length: 5 }, () => ['coffee', 'burger', S]);
     const wins = evaluateWins(grid).wins;
     expect(wins).toEqual(expect.arrayContaining([
-      expect.objectContaining({ payline: 1, symbol: 'coffee', count: 5, payoutMultiplier: 5 }),
-      expect.objectContaining({ payline: 2, symbol: 'burger', count: 5, payoutMultiplier: 8 }),
+      expect.objectContaining({ payline: 1, symbol: 'coffee', count: 5, payoutMultiplier: 4 }),
+      expect.objectContaining({ payline: 2, symbol: 'burger', count: 5, payoutMultiplier: 6 }),
     ]));
   });
 
@@ -69,22 +69,22 @@ describe('GameMath contract - paylines and payouts', () => {
 describe('GameMath contract - Marge best-pay Wild', () => {
   it('pays 3 Marge instead of lower-paying 4 Coffee', () => {
     const win = paylineWin(gridWithTopRow(['marge', 'marge', 'marge', 'coffee', 'victor']), 1);
-    expect(win).toMatchObject({ symbol: 'marge', count: 3, payoutMultiplier: 5, payline: 1 });
+    expect(win).toMatchObject({ symbol: 'marge', count: 3, payoutMultiplier: 25, payline: 1 });
   });
 
-  it('pays higher-paying 4 Zed using leading Marges as Wilds', () => {
+  it('pays higher-paying 3 Marge instead of 4 Zed using Wild substitution', () => {
     const win = paylineWin(gridWithTopRow(['marge', 'marge', 'marge', 'zed', 'victor']), 1);
-    expect(win).toMatchObject({ symbol: 'zed', count: 4, payoutMultiplier: 12, payline: 1 });
+    expect(win).toMatchObject({ symbol: 'marge', count: 3, payoutMultiplier: 25, payline: 1 });
   });
 
   it('still pays 3 Marge when Scatter blocks the line', () => {
     const win = paylineWin(gridWithTopRow(['marge', 'marge', 'marge', 'scatter', 'zed']), 1);
-    expect(win).toMatchObject({ symbol: 'marge', count: 3, payoutMultiplier: 5, payline: 1 });
+    expect(win).toMatchObject({ symbol: 'marge', count: 3, payoutMultiplier: 25, payline: 1 });
   });
 
   it('pays 5 Marge for an all-Marge line', () => {
     const win = paylineWin(gridWithTopRow(['marge', 'marge', 'marge', 'marge', 'marge']), 1);
-    expect(win).toMatchObject({ symbol: 'marge', count: 5, payoutMultiplier: 30, payline: 1 });
+    expect(win).toMatchObject({ symbol: 'marge', count: 5, payoutMultiplier: 100, payline: 1 });
   });
 
   it('pays 5 Zed when two leading Marges substitute for Zed', () => {
@@ -92,10 +92,10 @@ describe('GameMath contract - Marge best-pay Wild', () => {
     expect(win).toMatchObject({ symbol: 'zed', count: 5, payoutMultiplier: 30, payline: 1 });
   });
 
-  it('uses the longer combination when payout multipliers tie', () => {
+  it('prefers higher-paying 3 Marge over longer 4 Chip', () => {
     const win = paylineWin(gridWithTopRow(['marge', 'marge', 'marge', 'chip', 'victor']), 1);
-    expect(win).toMatchObject({ symbol: 'chip', count: 4, payoutMultiplier: 5, payline: 1 });
-    expect(win?.positions).toHaveLength(4);
+    expect(win).toMatchObject({ symbol: 'marge', count: 3, payoutMultiplier: 25, payline: 1 });
+    expect(win?.positions).toHaveLength(3);
   });
 });
 
@@ -186,7 +186,7 @@ describe('GameMath contract - Scatter and cascades', () => {
     const grid = gridWithTopRow(['coffee', 'coffee', 'coffee', 'coffee', 'coffee']);
     const result = resolveCascades(grid);
     expect(result.steps).toHaveLength(1);
-    expect(result.totalPayoutMultiplier).toBe(5);
+    expect(result.totalPayoutMultiplier).toBe(4);
     expect(evaluateWins(result.finalGrid).wins).toHaveLength(0);
   });
 });

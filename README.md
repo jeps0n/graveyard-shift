@@ -33,28 +33,44 @@ Multiplier weighting:
 
 ## Game Math
 
-The reel model uses independent weighted symbol distributions for each of the five reels. Wins are evaluated against a fixed 10-payline definition, and cascades are resolved to exhaustion before the final payout is committed.
+The game uses independent weighted symbol distributions across five reels, with probabilities derived from integer reel weights. Wins are evaluated across 10 fixed paylines, cascades resolve until no further wins remain, and After Midnight multipliers apply to the following spin.
 
-A large offline simulation was used during development to validate the resulting math profile:
+The finalized math configuration (**`GS-0169-FFC9-46C5`**) was analyzed through seeded Monte Carlo simulations using a dedicated analyzer that measures RTP, win frequency, symbol distributions, and bonus performance.
+
+### Finalized simulation results
+
+Results from **5,000,000 simulated spins** across **five fixed seeds** (1,000,000 spins each):
 
 | Metric | Simulated result |
 | --- | ---: |
-| Base RTP | ≈94.8% |
-| Overall RTP including After Midnight | **≈97.8%** |
-| Base win hit frequency | ≈24.7% |
-| After Midnight trigger rate | ≈0.95% |
-| Approx. feature frequency | ≈1 in 106 spins |
-| Spins with at least one additional winning cascade | ≈3.9% |
+| **Total RTP** | **95.04%** |
+| Initial win RTP | 73.74% |
+| Cascade RTP | 10.30% |
+| After Midnight multiplier RTP contribution | 10.99% |
+| Overall win hit rate | 20.03% (≈1 in 5 spins) |
+| After Midnight trigger rate | 4.02% (≈1 in 25 spins) |
 
-These values are simulation results rather than regulatory claims and can vary slightly between runs.
+Results are based on 5,000,000 seeded Monte Carlo simulations and represent estimated performance for the configured game.
+
+### Run the math analyzer
+
+```bash
+npm run analyze:math
+```
+
+The analyzer uses reproducible seeds to measure RTP, win frequency, symbol distributions, and bonus performance. Its configuration is maintained separately in `scripts/reel-analyzer/`.
 
 ## Architecture
 
 The project separates game rules, math, presentation, features, and developer tooling rather than placing the full game loop in a single UI file.
 ```text
+scripts/
+└── reel-analyzer/             # Seeded Monte Carlo simulation and reports
 src/
-├── assets/                     # Symbols, cabinet, side artwork
-├── after-midnight/             # Feature artwork
+├── assets/
+│   ├── after-midnight/        # Feature artwork
+│   ├── cabinet/               # Cabinet artwork
+│   └── symbols/               # Reel symbol artwork
 ├── dev/
 │   ├── DebugSpinSnapshots.ts   # Recorded spin phase snapshots
 │   ├── SpinReplayController.ts # Replay captured outcomes
@@ -69,11 +85,14 @@ src/
 ├── math/
 │   ├── GameMath.ts             # Reel generation, win evaluation, cascades
 │   ├── Paylines.ts
-│   ├── Paytable.ts
+│   ├── Paytable.ts             # Production symbol payouts
+│   ├── ReelWeights.ts          # Production reel distributions
 │   └── RNG.ts
 ├── presentation/
 │   ├── GameView.ts
 │   ├── ReelView.ts
+│   ├── ReelTileFactory.ts      # Reel symbol tile creation
+│   ├── PaylineRenderer.ts      # Payline rendering
 │   ├── DebugSpinInspector.ts   # Snapshot navigation controls
 │   ├── BettingControls.ts      # Wager interactions
 │   ├── GameHud.ts              # Balance and win display
@@ -81,6 +100,8 @@ src/
 │   └── SymbolPresentation.ts
 ├── main.ts
 └── style.css
+
+tests/                         # Vitest game, math, and presentation tests
 ```
 
 The game flow uses an explicit state machine:

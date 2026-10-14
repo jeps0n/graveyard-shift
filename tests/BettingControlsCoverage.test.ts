@@ -8,7 +8,7 @@ function button() {
     clear: vi.fn(), roundRect: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
   };
   for (const method of ['clear', 'roundRect', 'fill', 'stroke']) graphics[method].mockReturnValue(graphics);
-  return graphics;
+  return { ...graphics, background: graphics };
 }
 function host() {
   const buttons = {
@@ -30,7 +30,7 @@ describe('Betting controls boundaries and spin locking', () => {
     const h = host();
     updateBetControls(h, 100, 10, increment);
     const selected = increment === 1 ? h.bet1Button : increment === 5 ? h.bet5Button : h.bet25Button;
-    expect(selected.stroke).toHaveBeenCalledWith(expect.objectContaining({ width: 3 }));
+    expect(selected.background.stroke).toHaveBeenCalledWith(expect.objectContaining({ width: 3 }));
     expect(h.spinButton.eventMode).toBe('static');
   });
   it('disables all wager actions when balance is zero', () => {

@@ -7,24 +7,13 @@ import type {
 import { PAYLINES } from './Paylines';
 import { PAYTABLE } from './Paytable';
 import { rng } from './RNG';
+import { REEL_WEIGHTS } from './ReelWeights';
 // ─────────────────────────────────────────────
 // Reel Model / Symbol Distribution
 // ─────────────────────────────────────────────
 // Each reel owns an independent weighted symbol distribution. Higher weights
 // increase that symbol's frequency; discrete reel strips preserve those ratios.
-const REEL_WEIGHTS: Record<SymbolId, number[]> = {
-  coffee: [12, 12, 13, 13, 13],
-  burger: [11, 11, 11, 12, 12],
-  gas: [10, 10, 10, 10, 11],
-  chip: [7, 7, 7, 7, 7],
-  dice: [6, 6, 6, 6, 6],
-  gary: [4, 4, 4, 4, 4],
-  zed: [4, 4, 4, 4, 4],
-  barkley: [4, 4, 3, 3, 3],
-  victor: [2, 2, 2, 2, 2],
-  marge: [2, 2, 2, 1, 1],
-  scatter: [2, 2, 2, 2, 1],
-};
+
 // Materialize each reel's weights as a discrete strip. Uniformly selecting a
 // strip position then produces symbol probabilities proportional to the weights.
 function buildReel(reelIndex: number): SymbolId[] {

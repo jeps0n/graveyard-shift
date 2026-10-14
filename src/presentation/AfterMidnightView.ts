@@ -29,16 +29,16 @@ export class AfterMidnightView extends Container {
     const [gasCanTexture, candyBarTexture, plushDollTexture, backdropTexture] =
       await Promise.all([
         Assets.load<Texture>(
-          new URL('../after-midnight/gasCan.png', import.meta.url).href,
+          new URL('../assets/after-midnight/gasCan.png', import.meta.url).href,
         ),
         Assets.load<Texture>(
-          new URL('../after-midnight/candyBar.png', import.meta.url).href,
+          new URL('../assets/after-midnight/candyBar.png', import.meta.url).href,
         ),
         Assets.load<Texture>(
-          new URL('../after-midnight/plushDoll.png', import.meta.url).href,
+          new URL('../assets/after-midnight/plushDoll.png', import.meta.url).href,
         ),
         Assets.load<Texture>(
-          new URL('../after-midnight/backdrop.png', import.meta.url).href,
+          new URL('../assets/after-midnight/backdrop.png', import.meta.url).href,
         ),
       ]);
     const textures: Record<MidnightChoice, Texture> = {

@@ -1,20 +1,20 @@
-import { Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 import { gsap } from 'gsap';
 
-// Operates on the original GameView display objects. No extra container or
-// reparenting: positions, z-order, event listeners and public buttons stay intact.
+// Keep interaction and animation on the button container; draw its face separately.
+export type BetButton = Container & { background: Graphics };
 export interface BettingHost {
   spinButton: Graphics;
   spinText: Text;
   spinEnabledRequested: boolean;
   spinBusy: boolean;
-  betDownButton: Graphics;
-  clearBetButton: Graphics;
-  betUpButton: Graphics;
-  maxBetButton: Graphics;
-  bet1Button: Graphics;
-  bet5Button: Graphics;
-  bet25Button: Graphics;
+  betDownButton: BetButton;
+  clearBetButton: BetButton;
+  betUpButton: BetButton;
+  maxBetButton: BetButton;
+  bet1Button: BetButton;
+  bet5Button: BetButton;
+  bet25Button: BetButton;
   setSpinEnabled(enabled: boolean): void;
   applySpinControlState(): void;
 }
@@ -25,8 +25,10 @@ export function createBetButton(
     y: number,
     width: number,
     height: number,
-  ): Graphics {
-    const button = new Graphics();
+  ): BetButton {
+    const button = new Container() as BetButton;
+    const background = new Graphics();
+    button.background = background;
     const text = new Text({
       text: label,
       style: {
@@ -38,14 +40,14 @@ export function createBetButton(
     text.anchor.set(0.5);
     text.x = width / 2;
     text.y = height / 2;
-    button.addChild(text);
+    button.addChild(background, text);
     // Center the transform origin so the press beat does not shift the button.
     button.pivot.set(width / 2, height / 2);
     button.x = x + width / 2;
     button.y = y + height / 2;
     button.eventMode = 'static';
     button.cursor = 'pointer';
-    button.clear()
+    background.clear()
       .roundRect(
         0,
         0,
@@ -121,7 +123,7 @@ export function updateBetControls(host: BettingHost,
     activeIncrement: 1 | 5 | 25,
   ): void {
     const incrementButtons: Array<{
-      button: Graphics;
+      button: BetButton;
       value: 1 | 5 | 25;
       width: number;
     }> = [
@@ -135,7 +137,7 @@ export function updateBetControls(host: BettingHost,
       width,
     }) => {
       const selected = value === activeIncrement;
-      button.clear()
+      button.background.clear()
         .roundRect(0, 0, width, 34, 10)
         .fill({
           color: selected

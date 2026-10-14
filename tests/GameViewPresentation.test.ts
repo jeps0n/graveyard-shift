@@ -3,14 +3,14 @@ import { GAME_HEIGHT, GAME_WIDTH, GameView } from '../src/presentation/GameView'
 
 // Exercise the real GameView methods without constructing GPU textures or a canvas.
 // The simple doubles represent Pixi display objects, not a replacement GameView.
-type Button = { alpha: number; eventMode: string; cursor: string; clear: ReturnType<typeof vi.fn>; roundRect: ReturnType<typeof vi.fn>; fill: ReturnType<typeof vi.fn>; stroke: ReturnType<typeof vi.fn> };
+type Button = { background?: Button; alpha: number; eventMode: string; cursor: string; clear: ReturnType<typeof vi.fn>; roundRect: ReturnType<typeof vi.fn>; fill: ReturnType<typeof vi.fn>; stroke: ReturnType<typeof vi.fn> };
 function button(): Button {
   const b = { alpha: 1, eventMode: 'static', cursor: 'pointer', clear: vi.fn(), roundRect: vi.fn(), fill: vi.fn(), stroke: vi.fn() };
   b.clear.mockReturnValue(b);
   b.roundRect.mockReturnValue(b);
   b.fill.mockReturnValue(b);
   b.stroke.mockReturnValue(b);
-  return b;
+  return { ...b, background: b };
 }
 function view() {
   const v: any = Object.create(GameView.prototype);

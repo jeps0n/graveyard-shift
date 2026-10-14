@@ -1,34 +1,17 @@
-import { DEV_PAYLINE_COLORS } from './DevPaylineColors';
-import {
-  Container,
-  Graphics,
-  Sprite,
-  Text,
-  Texture,
-} from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import { gsap } from 'gsap';
-import type {
-  ReelGrid,
-  SymbolId,
-  WinResult,
-} from '../game/types';
-import { PAYLINES } from '../math/Paylines';
-import { SYMBOL_ASSET_URLS } from '../assets/SymbolAssets';
-import { SYMBOL_PRESENTATION } from './SymbolPresentation';
-const REEL_WIDTH = 120;
-const REEL_HEIGHT = 120;
-const GAP = 10;
-const TILE_RADIUS = 8;
-const TILE_BORDER_WIDTH = 3;
+import type { ReelGrid, WinResult } from '../game/types';
+import {
+  applySymbolPresentation,
+  createTile,
+  GAP,
+  REEL_HEIGHT,
+  REEL_WIDTH,
+  type TileVisual,
+} from './ReelTileFactory';
+import { drawWinningPaylines } from './PaylineRenderer';
+
 const WIN_PUNCH_SCALE = 1.07;
-interface TileVisual {
-  readonly container: Container;
-  readonly visual: Container;
-  readonly cell: Graphics;
-  readonly symbol: Sprite;
-  readonly frame: Graphics;
-  readonly coordinate: Text;
-}
 
 // ─────────────────────────────────────────────
 // Reel Presentation / Tile Identity
@@ -234,10 +217,11 @@ export class ReelView extends Container {
       const refillTiles: TileVisual[] = [];
       for (let refillIndex = 0; refillIndex < refillCount; refillIndex++) {
         const targetRow = refillIndex;
-        const tile = this.createTile(
+        const tile = createTile(
           grid[reelIndex][targetRow],
           reelIndex,
           targetRow,
+          this.devMode && this.coordinatesVisible,
         );
         const startRow = -(refillCount - refillIndex);
         tile.container.y = startRow * (REEL_HEIGHT + GAP);
@@ -417,53 +401,7 @@ export class ReelView extends Container {
     if (!this.devMode) return;
     this.clearWinningPaylines();
 
-    // Every path uses the evaluator's exact contributing positions. A single
-    // win cannot be inferred reliably from visible symbols (Wilds are best-pay).
-    const winningByLine = new Map(wins.map((win) => [win.payline, win]));
-    const radius = 12;
-    const contributingOpacity = 0.80;
-    const remainingOpacity = 0.40;
-    PAYLINES.forEach((rows, lineIndex) => {
-      if (!winningByLine.has(lineIndex + 1)) return;
-      const color = DEV_PAYLINE_COLORS[lineIndex];
-      const contributing = new Set(
-        (winningByLine.get(lineIndex + 1)?.positions ?? [])
-          .map(({ reel, row }) => `${reel}:${row}`),
-      );
-      const centers = rows.map((row, reel) => ({
-        x: reel * (REEL_WIDTH + GAP) + REEL_WIDTH / 2,
-        y: row * (REEL_HEIGHT + GAP) + REEL_HEIGHT / 2,
-        active: contributing.has(`${reel}:${row}`),
-      }));
-      const drawing = new Graphics();
-      for (let i = 0; i < centers.length - 1; i++) {
-        const from = centers[i];
-        const to = centers[i + 1];
-        const dx = to.x - from.x;
-        const dy = to.y - from.y;
-        const distance = Math.hypot(dx, dy);
-        const ux = dx / distance;
-        const uy = dy / distance;
-        // Segments stop at the circle perimeter: no lines inside nodes.
-        drawing.moveTo(from.x + ux * radius, from.y + uy * radius);
-        drawing.lineTo(to.x - ux * radius, to.y - uy * radius);
-        drawing.stroke({
-          width: from.active && to.active ? 6 : 4,
-          color,
-          alpha: from.active && to.active ? contributingOpacity : remainingOpacity,
-        });
-      }
-      centers.forEach(({ x, y, active }) => {
-        drawing.circle(x, y, radius);
-        if (active) {
-          drawing.fill({ color, alpha: contributingOpacity });
-          drawing.stroke({ color, alpha: contributingOpacity, width: 4 });
-        } else {
-          drawing.stroke({ color, alpha: remainingOpacity, width: 4 });
-        }
-      });
-      this.paylineLayer.addChild(drawing);
-    });
+    drawWinningPaylines(this.paylineLayer, wins);
   }
   clearWinningPaylines(): void {
     this.paylineLayer.removeChildren();
@@ -481,7 +419,7 @@ export class ReelView extends Container {
       row < tiles.length && row < symbols.length;
       row++
     ) {
-      this.applySymbolPresentation(tiles[row], symbols[row]);
+      applySymbolPresentation(tiles[row], symbols[row]);
     }
   }
   private stopReelAnimation(): void {
@@ -501,28 +439,6 @@ export class ReelView extends Container {
       cell.alpha = 1;
     }
   }
-  private applySymbolPresentation(
-    tile: TileVisual,
-    symbol: SymbolId,
-  ): void {
-    const presentation = SYMBOL_PRESENTATION[symbol];
-    tile.symbol.texture = Texture.from(SYMBOL_ASSET_URLS[symbol]);
-    tile.cell
-      .clear()
-      .roundRect(0, 0, REEL_WIDTH, REEL_HEIGHT, TILE_RADIUS)
-      .fill(presentation.background);
-    tile.frame
-      .clear()
-      .roundRect(
-        TILE_BORDER_WIDTH / 2,
-        TILE_BORDER_WIDTH / 2,
-        REEL_WIDTH - TILE_BORDER_WIDTH,
-        REEL_HEIGHT - TILE_BORDER_WIDTH,
-        TILE_RADIUS - 1,
-      )
-      .stroke({ width: TILE_BORDER_WIDTH, color: presentation.main });
-  }
-
   private createPlaceholderGrid(): void {
     const grid: ReelGrid = [
       ['coffee', 'burger', 'gas'],
@@ -568,10 +484,11 @@ export class ReelView extends Container {
         row < grid[reel].length;
         row++
       ) {
-        const tile = this.createTile(
+        const tile = createTile(
           grid[reel][row],
           reel,
           row,
+          this.devMode && this.coordinatesVisible,
         );
         reelSpinner.addChild(tile.container);
         tiles.push(tile);
@@ -582,105 +499,5 @@ export class ReelView extends Container {
       }
       this.reelTiles.push(tiles);
     }
-  }
-  private createTile(
-    symbol: SymbolId,
-    reel: number,
-    row: number,
-  ): TileVisual {
-    const tileContainer = new Container();
-    tileContainer.x = 0;
-    tileContainer.y =
-      row * (REEL_HEIGHT + GAP);
-    const tileVisual = new Container();
-    tileVisual.pivot.set(REEL_WIDTH / 2, REEL_HEIGHT / 2);
-    tileVisual.position.set(REEL_WIDTH / 2, REEL_HEIGHT / 2);
-    tileContainer.addChild(tileVisual);
-    const presentation = SYMBOL_PRESENTATION[symbol];
-    const cell = new Graphics()
-      .roundRect(
-        0,
-        0,
-        REEL_WIDTH,
-        REEL_HEIGHT,
-        TILE_RADIUS,
-      )
-      .fill(presentation.background);
-    tileVisual.addChild(cell);
-    const symbolSprite = new Sprite(
-      Texture.from(SYMBOL_ASSET_URLS[symbol]),
-    );
-    symbolSprite.anchor.set(0.5);
-    symbolSprite.position.set(
-      REEL_WIDTH / 2,
-      REEL_HEIGHT / 2,
-    );
-    symbolSprite.width = REEL_WIDTH;
-    symbolSprite.height = REEL_HEIGHT;
-    const symbolMask = new Graphics()
-      .roundRect(
-        0,
-        0,
-        REEL_WIDTH,
-        REEL_HEIGHT,
-        TILE_RADIUS,
-      )
-      .fill(0xffffff);
-    tileVisual.addChild(symbolMask);
-    symbolSprite.mask = symbolMask;
-    tileVisual.addChild(symbolSprite);
-    const frame = new Graphics()
-      .roundRect(
-        TILE_BORDER_WIDTH / 2,
-        TILE_BORDER_WIDTH / 2,
-        REEL_WIDTH - TILE_BORDER_WIDTH,
-        REEL_HEIGHT - TILE_BORDER_WIDTH,
-        TILE_RADIUS - 1,
-      )
-      .stroke({
-        width: TILE_BORDER_WIDTH,
-        color: presentation.main,
-      });
-    tileVisual.addChild(frame);
-    const coordinateBadgeX = 6;
-    const coordinateBadgeY = 6;
-    const coordinateBadgeWidth = 32;
-    const coordinateBadgeHeight = 22;
-    const coordinateBackground = new Graphics()
-      .roundRect(
-        coordinateBadgeX,
-        coordinateBadgeY,
-        coordinateBadgeWidth,
-        coordinateBadgeHeight,
-        5,
-      )
-      .fill({ color: 0x000000, alpha: 0.62 });
-    coordinateBackground.label = 'dev-coordinate-background';
-    coordinateBackground.visible = this.devMode && this.coordinatesVisible;
-    tileVisual.addChild(coordinateBackground);
-
-    const coordinate = new Text({
-      text: `(${reel + 1},${row + 1})`,
-      style: {
-        fill: 0x00e5ff,
-        fontSize: 12,
-        fontWeight: 'bold',
-      },
-    });
-    coordinate.anchor.set(0.5);
-    coordinate.position.set(
-      coordinateBadgeX + coordinateBadgeWidth / 2,
-      coordinateBadgeY + coordinateBadgeHeight / 2,
-    );
-    coordinate.visible = this.devMode && this.coordinatesVisible;
-    tileVisual.addChild(coordinate);
-    return {
-      container: tileContainer,
-      visual: tileVisual,
-      cell,
-      symbol: symbolSprite,
-      frame,
-      coordinate,
-    };
   }
 }

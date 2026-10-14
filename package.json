@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "analyze:math": "node scripts/reel-analyzer/ReelAnalyzer.js"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^5.0.0",
